@@ -14,7 +14,7 @@ long_description = '\n\n'.join([
 
 setup(
     name='bika.mining',
-    version='1.0a1',
+    version='1.0',
     description="An add-on for Plone",
     long_description=long_description,
     # Get more from https://pypi.org/classifiers/
@@ -29,14 +29,13 @@ setup(
         "Operating System :: OS Independent",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
     ],
-    keywords='Python Plone CMS',
+    keywords=['Bika LIMS', 'Laboratory Information Management System',],
     author='Lunga Baliwe',
     author_email='lunga@bikalabs.com',
-    url='https://github.com/collective/bika.mining',
+    url='https://github.com/bikalims/bika.mining',
     project_urls={
-        'PyPI': 'https://pypi.python.org/pypi/bika.mining',
-        'Source': 'https://github.com/collective/bika.mining',
-        'Tracker': 'https://github.com/collective/bika.mining/issues',
+        'Source': 'https://github.com/bikalims/bika.mining',
+        'Tracker': 'https://github.com/bikalims/bika.mining/issues',
         # 'Documentation': 'https://bika.mining.readthedocs.io/en/latest/',
     },
     license='GPL version 2',
