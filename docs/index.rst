@@ -1,0 +1,5 @@
+===========
+bika.mining
+===========
+
+User documentation
