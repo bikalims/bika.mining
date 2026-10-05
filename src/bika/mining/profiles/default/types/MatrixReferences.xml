@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<object name="MatrixReferences" meta_type="Dexterity FTI"
+        xmlns:i18n="http://xml.zope.org/namespaces/i18n" i18n:domain="bika.mining">
+  <property name="title" i18n:translate="">Matrix References</property>
+  <property name="description" />
+  <property name="factory">MatrixReferences</property>
+  <property name="icon_expr">senaite_theme/icon/container</property>
+  <property name="add_view_expr">string:${folder_url}/++add++MatrixReferences</property>
+  <property name="global_allow">False</property>
+  <property name="filter_content_types">True</property>
+  <property name="allowed_content_types"><element value="MatrixReference" /></property>
+  <property name="allow_discussion">False</property>
+  <property name="add_permission">bika.mining.AddMatrixReferences</property>
+  <property name="klass">bika.mining.content.matrixreferences.MatrixReferences</property>
+  <property name="schema">bika.mining.content.matrixreferences.IMatrixReferencesSchema</property>
+  <property name="behaviors"><element value="plone.app.content.interfaces.INameFromTitle" />
+    <element value="plone.app.dexterity.behaviors.metadata.IBasic" /></property>
+  <property name="default_view">view</property>
+  <property name="immediate_view">view</property>
+  <property name="default_view_fallback">False</property>
+  <property name="view_methods"><element value="view" /></property>
+  <alias from="(Default)" to="(dynamic view)" />
+  <alias from="edit" to="@@edit" />
+  <alias from="view" to="(selected layout)" />
+  <action action_id="view" category="object" title="View"
+      url_expr="string:${object_url}" visible="True">
+    <permission value="View" />
+  </action>
+  <action action_id="edit" category="object" title="Edit"
+      url_expr="string:${object_url}/edit" visible="True">
+    <permission value="Modify portal content" />
+  </action>
+</object>

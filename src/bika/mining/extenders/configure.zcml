@@ -1,0 +1,13 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:plone="http://namespaces.plone.org/plone">
+  <include package="archetypes.schemaextender" />
+  <include package="plone.behavior" file="meta.zcml" />
+  <adapter name="bika.mining.analysisrequest.schemaextender"
+      provides="archetypes.schemaextender.interfaces.ISchemaExtender"
+      factory=".analysisrequest.AnalysisRequestSchemaExtender" />
+  <plone:behavior name="bika.mining.sampletemplate"
+      title="Mining Sample Template"
+      description="Matrix Reference and sample Target TAT defaults"
+      provides=".sampletemplate.IMiningSampleTemplate"
+      factory=".sampletemplate.MiningSampleTemplate" />
+</configure>

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<object name="portal_workflow">
+  <bindings>
+    <type type_id="MatrixReference"><bound-workflow workflow_id="senaite_deactivable_type_workflow" /></type>
+    <type type_id="MatrixReferences"></type>
+    <type type_id="Shift"><bound-workflow workflow_id="senaite_deactivable_type_workflow" /></type>
+    <type type_id="Shifts"></type>
+    <type type_id="Classification"><bound-workflow workflow_id="senaite_deactivable_type_workflow" /></type>
+    <type type_id="Classifications"></type>
+    <type type_id="DrumBatch"><bound-workflow workflow_id="senaite_deactivable_type_workflow" /></type>
+    <type type_id="DrumBatches"></type>
+  </bindings>
+</object>

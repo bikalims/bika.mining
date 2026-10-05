@@ -4,9 +4,14 @@
   i18n_domain="plone">
 
   <configure zcml:condition="installed AccessControl.security">
-  <!-- -*- extra stuff goes here -*- -->
-
-
+    <permission id="bika.mining.AddMatrixReference" title="bika.mining: Add MatrixReference" />
+    <permission id="bika.mining.AddMatrixReferences" title="bika.mining: Add MatrixReferences" />
+    <permission id="bika.mining.AddShift" title="bika.mining: Add Shift" />
+    <permission id="bika.mining.AddShifts" title="bika.mining: Add Shifts" />
+    <permission id="bika.mining.AddClassification" title="bika.mining: Add Classification" />
+    <permission id="bika.mining.AddClassifications" title="bika.mining: Add Classifications" />
+    <permission id="bika.mining.AddDrumBatch" title="bika.mining: Add DrumBatch" />
+    <permission id="bika.mining.AddDrumBatches" title="bika.mining: Add DrumBatches" />
   </configure>
 
 </configure>

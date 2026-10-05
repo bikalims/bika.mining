@@ -14,6 +14,28 @@
   <!--<includeDependencies package="." />-->
 
   <include package=".browser" />
+  <include package=".extenders" />
+
+  <adapter name="bika.mining.matrixreference.info"
+      for=".interfaces.IMatrixReference"
+      provides="bika.lims.interfaces.IAddSampleObjectInfo"
+      factory=".adapters.MatrixReferenceInfo" />
+  <adapter name="bika.mining.sampletemplate.info"
+      for="senaite.core.interfaces.ISampleTemplate"
+      provides="bika.lims.interfaces.IAddSampleObjectInfo"
+      factory=".adapters.SampleTemplateInfo" />
+  <subscriber for="bika.lims.interfaces.IAnalysisRequest
+                   zope.lifecycleevent.interfaces.IObjectAddedEvent"
+      handler=".events.initialize_sample" />
+  <subscriber for="senaite.core.interfaces.ISampleTemplate
+                   zope.lifecycleevent.interfaces.IObjectAddedEvent"
+      handler=".events.populate_sample_template" />
+  <subscriber for="senaite.core.interfaces.ISampleTemplate
+                   zope.lifecycleevent.interfaces.IObjectModifiedEvent"
+      handler=".events.populate_sample_template" />
+  <subscriber for="bika.lims.interfaces.IAnalysisRequest
+                   Products.DCWorkflow.interfaces.IAfterTransitionEvent"
+      handler=".events.after_transition" />
 
   <include file="permissions.zcml" />
 
@@ -41,5 +63,9 @@
       />
 
   <!-- -*- extra stuff goes here -*- -->
+  <genericsetup:upgradeStep title="Install mining sample attributes"
+      description="Add mining lookup tables and template defaults"
+      source="1000" destination="1001" profile="bika.mining:default"
+      handler=".setuphandlers.upgrade" />
 
 </configure>

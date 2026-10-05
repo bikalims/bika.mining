@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<object name="portal_types">
+  <object name="MatrixReference" meta_type="Dexterity FTI" />
+  <object name="MatrixReferences" meta_type="Dexterity FTI" />
+  <object name="Shift" meta_type="Dexterity FTI" />
+  <object name="Shifts" meta_type="Dexterity FTI" />
+  <object name="Classification" meta_type="Dexterity FTI" />
+  <object name="Classifications" meta_type="Dexterity FTI" />
+  <object name="DrumBatch" meta_type="Dexterity FTI" />
+  <object name="DrumBatches" meta_type="Dexterity FTI" />
+  <object name="SampleTemplate" />
+</object>

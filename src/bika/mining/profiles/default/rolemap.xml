@@ -1,7 +1,29 @@
 <?xml version="1.0"?>
 <rolemap>
   <permissions>
-  <!-- -*- extra stuff goes here -*- -->
-
+    <permission name="bika.mining: Add MatrixReference" acquire="False">
+      <role name="LabManager" /><role name="Manager" />
+    </permission>
+    <permission name="bika.mining: Add MatrixReferences" acquire="False">
+      <role name="LabManager" /><role name="Manager" />
+    </permission>
+    <permission name="bika.mining: Add Shift" acquire="False">
+      <role name="LabManager" /><role name="Manager" />
+    </permission>
+    <permission name="bika.mining: Add Shifts" acquire="False">
+      <role name="LabManager" /><role name="Manager" />
+    </permission>
+    <permission name="bika.mining: Add Classification" acquire="False">
+      <role name="LabManager" /><role name="Manager" />
+    </permission>
+    <permission name="bika.mining: Add Classifications" acquire="False">
+      <role name="LabManager" /><role name="Manager" />
+    </permission>
+    <permission name="bika.mining: Add DrumBatch" acquire="False">
+      <role name="LabManager" /><role name="Manager" />
+    </permission>
+    <permission name="bika.mining: Add DrumBatches" acquire="False">
+      <role name="LabManager" /><role name="Manager" />
+    </permission>
   </permissions>
 </rolemap>

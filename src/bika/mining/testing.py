@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from plone.app.contenttypes.testing import PLONE_APP_CONTENTTYPES_FIXTURE
+from senaite.core.tests.layers import BASE_LAYER_FIXTURE
 from plone.app.robotframework.testing import REMOTE_LIBRARY_BUNDLE_FIXTURE
 from plone.app.testing import (
     applyProfile,
@@ -14,7 +14,7 @@ import bika.mining
 
 class BikaMiningLayer(PloneSandboxLayer):
 
-    defaultBases = (PLONE_APP_CONTENTTYPES_FIXTURE,)
+    defaultBases = (BASE_LAYER_FIXTURE,)
 
     def setUpZope(self, app, configurationContext):
         # Load any other ZCML that is required for your tests.
