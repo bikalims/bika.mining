@@ -68,4 +68,9 @@
       source="1000" destination="1001" profile="bika.mining:default"
       handler=".setuphandlers.upgrade" />
 
+  <genericsetup:upgradeStep title="Move Matrix References to SENAITE setup"
+      description="Preserve existing Matrix References in the new setup folder"
+      source="1001" destination="1002" profile="bika.mining:default"
+      handler=".setuphandlers.setup_matrixreferences" />
+
 </configure>

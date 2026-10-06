@@ -5,6 +5,10 @@
     i18n_domain="bika.mining">
 
   <include package="senaite.core.permissions" />
+  <adapter name="Matrix_References"
+      factory=".overrides.setupdata.Matrix_References"
+      provides="bika.lims.interfaces.ISetupDataImporter"
+      for="Products.CMFPlone.interfaces.IPloneSiteRoot" />
   <browser:page for="bika.mining.interfaces.IMatrixReferences"
       name="view" class=".matrixreferences.MatrixReferencesView"
       permission="senaite.core.permissions.ManageBika"
