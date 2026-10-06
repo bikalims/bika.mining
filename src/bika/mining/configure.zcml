@@ -73,9 +73,4 @@
       source="1001" destination="1002" profile="bika.mining:default"
       handler=".setuphandlers.setup_mining_folders" />
 
-  <genericsetup:upgradeStep title="Move remaining mining lookup folders to SENAITE setup"
-      description="Migrate Shifts, Classifications and Drum/Batch after the Matrix References upgrade"
-      source="1002" destination="1003" profile="bika.mining:default"
-      handler=".setuphandlers.setup_mining_folders" />
-
 </configure>
