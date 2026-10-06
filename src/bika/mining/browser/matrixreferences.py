@@ -66,7 +66,6 @@ class MatrixReferencesView(SetupLookupView):
         for name, title in [
             ("area", u"Area"), ("circuit_area", u"Circuit / Area"),
             ("plant_sample_id", u"Plant Sample ID"),
-            ("sample_point_description", u"Sample Point Description"),
             ("target_tat", u"Target TAT (h)"), ("sample_type", u"Sample Type"),
         ]:
             columns[name] = {"title": _(title), "sortable": False}
@@ -75,8 +74,7 @@ class MatrixReferencesView(SetupLookupView):
     def folderitem(self, obj, item, index):
         obj = api.get_object(obj)
         item["replace"]["Title"] = get_link_for(obj)
-        for name in ("area", "circuit_area", "sample_point_description",
-                     "target_tat"):
+        for name in ("area", "circuit_area", "target_tat"):
             value = getattr(obj, name, None)
             item[name] = value if value is not None else ""
         for name in ("plant_sample_id", "sample_type"):

@@ -35,9 +35,6 @@ class IMatrixReferenceSchema(model.Schema):
         allowed_types=("SamplePoint",), multi_valued=False,
         relationship="MatrixReferenceSamplePoint", required=False,
     )
-    sample_point_description = schema.Text(
-        title=_(u"Sample Point Description"), required=False,
-    )
     target_tat = schema.Float(
         title=_(u"Target TAT (h)"), min=0.0, required=False,
     )
