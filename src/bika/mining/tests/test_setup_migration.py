@@ -30,7 +30,9 @@ class TestMatrixReferenceMigration(unittest.TestCase):
         def move(obj, destination, **kwargs):
             self.assertFalse(kwargs["check_constraints"])
             self.moves.append((obj, destination))
-            origin = self.old if obj is self.old.get("matrixreferences") else self.old["matrixreferences"]
+            containers = [self.old] + list(self.old.values())
+            origin = next(container for container in containers
+                          if any(value is obj for value in container.values()))
             id = next(key for key, value in origin.items() if value is obj)
             del origin[id]
             destination[id] = obj
@@ -88,3 +90,39 @@ class TestMatrixReferenceMigration(unittest.TestCase):
         self.assertEqual(self.moves, [])
         self.assertEqual(len(self.old["matrixreferences"]), 1)
         self.assertEqual(len(self.new["matrixreferences"]), 1)
+
+    def test_moves_all_mining_folders_and_is_repeatable(self):
+        expected = {}
+        for id in ("matrixreferences", "shifts", "classifications", "drumbatches"):
+            record = object()
+            expected[id] = Folder(record=record)
+            self.old[id] = expected[id]
+        setuphandlers.setup_mining_folders(None)
+        self.assertEqual(self.old, {})
+        for id, folder in expected.items():
+            self.assertIs(self.new[id], folder)
+        self.assertEqual(len(self.moves), 4)
+        setuphandlers.setup_mining_folders(None)
+        self.assertEqual(len(self.moves), 4)
+
+    def test_merges_remaining_folders_after_matrix_upgrade(self):
+        self.new["matrixreferences"] = Folder()
+        expected = {}
+        for id in ("shifts", "classifications", "drumbatches"):
+            expected[id] = object()
+            self.old[id] = Folder(old=expected[id])
+            self.new[id] = Folder(new=object())
+        setuphandlers.setup_mining_folders(None)
+        self.assertEqual(self.old, {})
+        for id, record in expected.items():
+            self.assertIs(self.new[id]["old"], record)
+            self.assertEqual(len(self.new[id]), 2)
+
+    def test_preflights_all_folders_before_any_move(self):
+        self.old["matrixreferences"] = Folder(record=object())
+        self.old["drumbatches"] = Folder(same=object())
+        self.new["drumbatches"] = Folder(same=object())
+        with self.assertRaises(ValueError):
+            setuphandlers.setup_mining_folders(None)
+        self.assertEqual(self.moves, [])
+        self.assertIn("matrixreferences", self.old)
