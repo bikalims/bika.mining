@@ -18,7 +18,7 @@ def post_install(context):
     from bika.lims import api
     from senaite.core.setuphandlers import add_dexterity_items
     setup_matrixreferences(context)
-    add_dexterity_items(api.get_setup(), [
+    add_dexterity_items(api.get_senaite_setup(), [
         ("shifts", "Shifts", "Shifts"),
         ("classifications", "Classifications", "Classifications"),
         ("drumbatches", "Drum/Batch", "DrumBatches"),
