@@ -1,0 +1,53 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+      lang="en"
+      metal:use-macro="here/main_template/macros/master"
+      i18n:domain="senaite.sampleimporter">
+
+<head>< i18n:translate=""
+        tal:content="Add SampleImport"/>
+</head>
+
+
+<body>
+
+<div metal:fill-slot="content-core">
+
+    <h1>
+        <img tal:attributes="src string:++resource++senaite.sampleimporter.static/img/sampleimport_big.png"/>
+        <span i18n:translate="">Import Sample Data</span>
+    </h1>
+
+    <p><a tal:attributes="href string:${here/absolute_url}/sampleimport_template"
+          >Download sample import spreadsheet (CSV)</a></p>
+    <p>
+        Fill in Contact with an existing client contact name and select analyses
+        by entering 1 in their keyword columns. Save the spreadsheet as CSV.
+    </p>
+    <p>
+        Mining sample columns: <code>MatrixReference</code>,
+        <code>Shift</code>, <code>Classification</code>,
+        <code>DrumBatch</code> and <code>TargetTAT</code>.
+        Use existing lookup titles or UIDs. Target TAT is in hours;
+        leave it blank to use the configured default. TAT Status is
+        calculated when results are published.
+    </p>
+
+    <form method="post" name="import_analysisrequest" enctype="multipart/form-data">
+        <input type="hidden" name="submitted" value="1" />
+        <input type="hidden" name="ClientID" tal:attributes="value here/getId"/>
+        <div class="field">
+            <input id="sampleimport_file" type="file" name="csvfile" size="60"/>
+        </div>
+        <input
+            class="context"
+            type="submit"
+            name="submit"
+            value="Import"
+            i18n:attributes="value"
+        />
+    </form>
+
+</div>
+
+</body>
+</html>

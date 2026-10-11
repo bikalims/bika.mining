@@ -1,0 +1,27 @@
+<configure
+    xmlns="http://namespaces.zope.org/zope"
+    xmlns:browser="http://namespaces.zope.org/browser"
+    xmlns:monkey="http://namespaces.plone.org/monkey">
+
+  <include package="collective.monkeypatcher" file="meta.zcml" />
+  <adapter name="bika.mining.sampleimport.schema"
+      factory=".sampleimport.SampleImportSchemaModifier"
+      provides="archetypes.schemaextender.interfaces.ISchemaModifier" />
+
+  <monkey:patch
+      class="senaite.sampleimporter.content.sampleimport.SampleImport"
+      original="munge_field_value"
+      replacement=".sampleimport.munge_field_value"
+      ignoreOriginal="True" />
+  <monkey:patch
+      class="senaite.sampleimporter.content.sampleimport.SampleImport"
+      original="validate_against_schema"
+      replacement=".sampleimport.validate_against_schema"
+      ignoreOriginal="True" />
+
+  <browser:page for="bika.lims.interfaces.IClient"
+      name="sampleimport_template"
+      class=".browser.sampleimport.SampleImportTemplateView"
+      permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer=".interfaces.IBikaMiningLayer" />
+</configure>
