@@ -3,6 +3,7 @@ from DateTime import DateTime
 from bika.lims import api
 from bika.mining.extenders.sampletemplate import IMiningSampleTemplate
 from senaite.core.content.sampletemplate import ISampleTemplateSchema
+from bika.mining.tat import elapsed_hours
 
 
 def populate_sample_template(template, event):
@@ -60,6 +61,8 @@ def initialize_sample(sample, event):
     if matrix is not None and target_field.get(sample) is None:
         if matrix.target_tat is not None:
             target_field.set(sample, matrix.target_tat)
+    # Creation subscribers may run after the initial catalog indexing.
+    sample.reindexObject(idxs=["getDueDate"])
 
 
 def tat_status(hours, received, published):
@@ -86,6 +89,13 @@ def after_transition(sample, event):
         field.set(sample, tat_status(
             get_field_value(sample, "TargetTAT"),
             sample.getDateReceived(), published))
+        tat = sample.Schema().getField("TAT")
+        if tat is not None:
+            tat.set(sample, elapsed_hours(sample.getDateReceived(), published))
         sample.reindexObject()
     elif event.transition.new_state_id != "published":
         field.set(sample, "")
+        tat = sample.Schema().getField("TAT")
+        if tat is not None:
+            tat.set(sample, None)
+        sample.reindexObject()

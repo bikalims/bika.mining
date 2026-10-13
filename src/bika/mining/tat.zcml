@@ -1,0 +1,10 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:monkey="http://namespaces.plone.org/monkey">
+  <include package="collective.monkeypatcher" file="meta.zcml" />
+  <monkey:patch class="bika.lims.content.analysisrequest.AnalysisRequest"
+      original="getDueDate" replacement=".tat.get_due_date"
+      ignoreOriginal="True" />
+  <monkey:patch class="bika.lims.content.analysisrequest.AnalysisRequest"
+      original="getLate" replacement=".tat.get_late"
+      ignoreOriginal="True" />
+</configure>

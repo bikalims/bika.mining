@@ -5,6 +5,10 @@
     i18n_domain="bika.mining">
 
   <include package="senaite.core.permissions" />
+  <subscriber for="senaite.core.browser.samples.view.SamplesView
+                   zope.interface.Interface"
+      provides="senaite.app.listing.interfaces.IListingViewAdapter"
+      factory=".samples.SamplesListingViewAdapter" />
   <adapter name="Matrix_References"
       factory=".overrides.setupdata.Matrix_References"
       provides="bika.lims.interfaces.ISetupDataImporter"

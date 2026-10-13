@@ -16,6 +16,7 @@
 
   <include package=".browser" />
   <include package=".extenders" />
+  <include file="tat.zcml" />
   <include file="sampleimport.zcml"
       zcml:condition="installed senaite.sampleimporter" />
 
@@ -75,5 +76,10 @@
       description="Preserve existing mining records in the new setup folder"
       source="1001" destination="1002" profile="bika.mining:default"
       handler=".setuphandlers.setup_mining_folders" />
+
+  <genericsetup:upgradeStep title="Apply Sample target turnaround times"
+      description="Refresh Sample due dates and published turnaround values"
+      source="1002" destination="1003" profile="bika.mining:default"
+      handler=".setuphandlers.upgrade_sample_tat" />
 
 </configure>

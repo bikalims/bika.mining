@@ -74,3 +74,23 @@ def upgrade(context):
 def uninstall(context):
     """Uninstall script"""
     # Do something at the end of the uninstallation of this package.
+
+
+def upgrade_sample_tat(context):
+    """Refresh Sample deadlines and backfill published turnaround values."""
+    from bika.lims import api
+    from bika.mining.events import tat_status
+    from bika.mining.tat import elapsed_hours, target_hours
+    for brain in api.search({"portal_type": "AnalysisRequest"}):
+        sample = api.get_object(brain)
+        if api.get_workflow_status_of(sample) == "published":
+            received = sample.getDateReceived()
+            published = sample.getDatePublished()
+            for name, value in (
+                ("TAT", elapsed_hours(received, published)),
+                ("TATStatus", tat_status(target_hours(sample), received, published)),
+            ):
+                field = sample.Schema().getField(name)
+                if field is not None:
+                    field.set(sample, value)
+        sample.reindexObject(idxs=["getDueDate"])

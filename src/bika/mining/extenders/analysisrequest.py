@@ -85,6 +85,16 @@ class AnalysisRequestSchemaExtender(object):
                          "header_table": "visible"},
             ),
         ),
+        ExtFloatField(
+            "TAT", required=False, default=None, mode="r",
+            read_permission=View,
+            widget=DecimalWidget(
+                label=_(u"TAT (h)"), render_own_label=True,
+                description=_(u"Actual hours from laboratory receipt to publication."),
+                visible={"add": "invisible", "edit": "invisible",
+                         "header_table": "visible"},
+            ),
+        ),
     ]
 
     def __init__(self, context):
