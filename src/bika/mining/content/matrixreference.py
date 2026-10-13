@@ -17,9 +17,18 @@ from zope.interface import implementer
 class IMatrixReferenceSchema(model.Schema):
     """Information shared by recurring samples at the plant."""
 
-    title = schema.TextLine(title=_(u"Matrix Ref"), required=True)
-    area = schema.TextLine(title=_(u"Area"), required=False)
-    circuit_area = schema.TextLine(title=_(u"Circuit / Area"), required=False)
+    title = schema.TextLine(
+        title=_(u"Matrix Ref"), required=True,
+        description=_(u"Code or name identifying this recurring plant sample."),
+    )
+    area = schema.TextLine(
+        title=_(u"Area"), required=False,
+        description=_(u"Plant area associated with this matrix reference."),
+    )
+    circuit_area = schema.TextLine(
+        title=_(u"Circuit / Area"), required=False,
+        description=_(u"Process circuit or specific sampling area within the plant."),
+    )
 
     # No client or path restriction: include setup and all clients' points.
     directives.widget(
@@ -37,6 +46,8 @@ class IMatrixReferenceSchema(model.Schema):
     )
     target_tat = schema.Float(
         title=_(u"Target TAT (h)"), min=0.0, required=False,
+        description=_(u"Default turnaround time in hours from laboratory receipt "
+                      u"to results publication for samples using this matrix reference."),
     )
     directives.widget(
         "sample_type", UIDReferenceWidgetFactory,
@@ -45,6 +56,7 @@ class IMatrixReferenceSchema(model.Schema):
     )
     sample_type = UIDReferenceField(
         title=_(u"Sample Type"), allowed_types=("SampleType",),
+        description=_(u"Default sample type for templates using this matrix reference."),
         multi_valued=False, relationship="MatrixReferenceSampleType",
         required=False,
     )

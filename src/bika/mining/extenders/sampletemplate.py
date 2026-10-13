@@ -19,11 +19,17 @@ class IMiningSampleTemplate(model.Schema):
     )
     matrix_reference = UIDReferenceField(
         title=_(u"Matrix Reference"), allowed_types=("MatrixReference",),
+        description=_(u"Default matrix reference for samples using this template. "
+                      u"On save, it supplies the sample point, sample type and "
+                      u"target turnaround time where these are blank."),
         multi_valued=False, relationship="SampleTemplateMatrixReference",
         required=False,
     )
     target_tat = schema.Float(
         title=_(u"Target TAT (h)"), min=0.0, required=False,
+        description=_(u"Default turnaround time in hours from laboratory receipt "
+                      u"to results publication. Leave blank to use the selected "
+                      u"matrix reference's target."),
     )
 
 

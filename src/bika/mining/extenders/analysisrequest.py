@@ -14,13 +14,14 @@ from zope.component import adapts
 from zope.interface import implementer
 
 
-def reference_field(name, portal_type, label):
+def reference_field(name, portal_type, label, description):
     return ExtUIDReferenceField(
         name, required=False, allowed_types=(portal_type,),
         relationship="AnalysisRequest" + name, format="select", mode="rw",
         read_permission=View, write_permission=FieldEditContact,
         widget=ReferenceWidget(
-            label=_(label), render_own_label=True, showOn=True,
+            label=_(label), description=_(description),
+            render_own_label=True, showOn=True,
             catalog_name="senaite_catalog_setup",
             base_query={"is_active": True, "sort_on": "sortable_title"},
             visible={"add": "edit", "header_table": "visible",
@@ -52,16 +53,23 @@ class AnalysisRequestSchemaExtender(object):
     layer = IBikaMiningLayer
 
     fields = [
-        reference_field("MatrixReference", "MatrixReference", u"Matrix Reference"),
-        reference_field("Shift", "Shift", u"Shift"),
-        reference_field("Classification", "Classification", u"Classification"),
-        reference_field("DrumBatch", "DrumBatch", u"Drum/Batch"),
+        reference_field("MatrixReference", "MatrixReference", u"Matrix Reference",
+                        u"Select the plant matrix reference for this sample."),
+        reference_field("Shift", "Shift", u"Shift",
+                        u"Select the shift during which the sample was taken."),
+        reference_field("Classification", "Classification", u"Classification",
+                        u"Select the process classification, such as Heads or Tails."),
+        reference_field("DrumBatch", "DrumBatch", u"Drum/Batch",
+                        u"Select the drum or batch associated with this sample."),
         ExtFloatField(
             "TargetTAT", required=False, default=None,
             validators=(validate_target_tat,),
             read_permission=View, write_permission=FieldEditContact,
             widget=DecimalWidget(
                 label=_(u"Target TAT (h)"), render_own_label=True,
+                description=_(u"Target turnaround time in hours from laboratory "
+                              u"receipt to results publication. Leave blank to use "
+                              u"the sample template or matrix reference default."),
                 visible={"add": "edit", "header_table": "visible",
                          "secondary": "disabled", "verified": "view",
                          "published": "view"},
@@ -71,6 +79,8 @@ class AnalysisRequestSchemaExtender(object):
             "TATStatus", required=False, mode="r", read_permission=View,
             widget=StringWidget(
                 label=_(u"TAT Status"), render_own_label=True,
+                description=_(u"Calculated when results are published: On Time "
+                              u"if the target turnaround time is met, otherwise Late."),
                 visible={"add": "invisible", "edit": "invisible",
                          "header_table": "visible"},
             ),

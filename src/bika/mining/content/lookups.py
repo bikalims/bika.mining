@@ -13,8 +13,14 @@ from zope.interface import implementer
 
 
 class ILookupSchema(model.Schema):
-    title = schema.TextLine(title=_(u"Title"), required=True)
-    description = schema.Text(title=_(u"Description"), required=False)
+    title = schema.TextLine(
+        title=_(u"Title"), required=True,
+        description=_(u"Code or name shown when selecting this entry on a sample."),
+    )
+    description = schema.Text(
+        title=_(u"Description"), required=False,
+        description=_(u"Explain the meaning of this shift, classification or drum/batch entry."),
+    )
 
 
 class ILookupFolderSchema(model.Schema):
