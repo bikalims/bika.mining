@@ -1,0 +1,22 @@
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:tal="http://xml.zope.org/namespaces/tal"
+      xmlns:metal="http://xml.zope.org/namespaces/metal"
+      metal:use-macro="context/main_template/macros/master">
+  <metal:main fill-slot="main">
+    <h1>Results XLSX</h1>
+    <p>Results use the fixed laboratory spreadsheet format.</p>
+    <p class="alert alert-danger" tal:condition="view/error"
+       tal:content="view/error" />
+    <form method="post" tal:attributes="action request/URL">
+      <div tal:replace="structure context/@@authenticator" />
+      <input type="hidden" name="items" tal:attributes="value view/items" />
+      <ul><li tal:repeat="sample view/selected_samples"
+              tal:content="sample/Title" /></ul>
+      <button type="submit" name="action" value="download"
+              class="btn btn-outline-secondary">Download XLSX</button>
+      <button type="submit" name="action" value="publish"
+              tal:condition="view/can_publish"
+              class="btn btn-success">Publish XLSX</button>
+    </form>
+  </metal:main>
+</html>

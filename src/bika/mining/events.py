@@ -6,6 +6,19 @@ from senaite.core.content.sampletemplate import ISampleTemplateSchema
 from bika.mining.tat import elapsed_hours
 
 
+def prioritize_mining_layer(site, event):
+    """Place mining overrides before the installed PDF publisher layer."""
+    from bika.mining.interfaces import IBikaMiningLayer
+    from plone.browserlayer.layer import mark_layer
+    from zope.interface import directlyProvidedBy, directlyProvides
+    mark_layer(site, event)
+    request = event.request
+    if IBikaMiningLayer.providedBy(request):
+        layers = [layer for layer in directlyProvidedBy(request)
+                  if layer is not IBikaMiningLayer]
+        directlyProvides(request, IBikaMiningLayer, *layers)
+
+
 def populate_sample_template(template, event):
     """Fill shared fields on save, keeping explicit template values."""
     if not getattr(template, "matrix_reference", None):

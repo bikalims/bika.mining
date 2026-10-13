@@ -1,0 +1,57 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:browser="http://namespaces.zope.org/browser">
+  <browser:page for="bika.lims.interfaces.IAnalysisRequest" name="publish"
+      class=".resultsxlsx.ResultsXLSXView"
+      permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="bika.lims.interfaces.IClient" name="publish"
+      class=".resultsxlsx.ResultsXLSXView"
+      permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="bika.lims.interfaces.IAnalysisRequestsFolder" name="publish"
+      class=".resultsxlsx.ResultsXLSXView"
+      permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="bika.lims.interfaces.IBatch" name="publish"
+      class=".resultsxlsx.ResultsXLSXView"
+      permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="*" name="ajax_publish"
+      class=".resultsxlsx.XLSXPublicationOnly" permission="zope2.View"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="*" name="printview"
+      class=".resultsxlsx.ResultsXLSXView"
+      permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="senaite.core.interfaces.IResultsReport" name="download_pdf"
+      class=".resultsxlsx.ReportDownloadView" permission="zope2.View"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="bika.lims.interfaces.IClient" name="email"
+      class=".resultsxlsx.ReportEmailView"
+      permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="bika.lims.interfaces.IAnalysisRequest" name="email"
+      class=".resultsxlsx.ReportEmailView"
+      permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <subscriber for="bika.lims.browser.publish.reports_listing.ReportsListingView
+                   zope.interface.Interface"
+      provides="senaite.app.listing.interfaces.IListingViewAdapter"
+      factory=".resultsxlsx.ResultsListingAdapter" />
+  <adapter name="workflow_action_download_reports"
+      for="bika.lims.interfaces.IClient bika.mining.interfaces.IBikaMiningLayer"
+      provides="bika.lims.interfaces.IWorkflowActionAdapter"
+      factory=".resultsxlsx.DownloadReportsAdapter" />
+  <adapter name="workflow_action_download_reports"
+      for="bika.lims.interfaces.IAnalysisRequest bika.mining.interfaces.IBikaMiningLayer"
+      provides="bika.lims.interfaces.IWorkflowActionAdapter"
+      factory=".resultsxlsx.DownloadReportsAdapter" />
+  <adapter name="workflow_action_publish_samples"
+      for="bika.lims.interfaces.IClient bika.mining.interfaces.IBikaMiningLayer"
+      provides="bika.lims.interfaces.IWorkflowActionAdapter"
+      factory=".resultsxlsx.PublishReportsAdapter" />
+  <adapter name="workflow_action_publish_samples"
+      for="bika.lims.interfaces.IAnalysisRequest bika.mining.interfaces.IBikaMiningLayer"
+      provides="bika.lims.interfaces.IWorkflowActionAdapter"
+      factory=".resultsxlsx.PublishReportsAdapter" />
+</configure>

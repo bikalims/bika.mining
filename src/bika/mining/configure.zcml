@@ -16,6 +16,9 @@
 
   <include package=".browser" />
   <include package=".extenders" />
+  <subscriber for="Products.CMFCore.interfaces.ISiteRoot
+                   zope.traversing.interfaces.IBeforeTraverseEvent"
+      handler=".events.prioritize_mining_layer" />
   <include file="tat.zcml" />
   <include file="sampleimport.zcml"
       zcml:condition="installed senaite.sampleimporter" />
