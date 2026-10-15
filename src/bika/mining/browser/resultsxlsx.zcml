@@ -1,27 +1,14 @@
 <configure xmlns="http://namespaces.zope.org/zope"
-           xmlns:browser="http://namespaces.zope.org/browser">
-  <browser:page for="bika.lims.interfaces.IAnalysisRequest" name="publish"
-      class=".resultsxlsx.ResultsXLSXView"
-      permission="senaite.core.permissions.ManageAnalysisRequests"
-      layer="bika.mining.interfaces.IBikaMiningLayer" />
-  <browser:page for="bika.lims.interfaces.IClient" name="publish"
-      class=".resultsxlsx.ResultsXLSXView"
-      permission="senaite.core.permissions.ManageAnalysisRequests"
-      layer="bika.mining.interfaces.IBikaMiningLayer" />
-  <browser:page for="bika.lims.interfaces.IAnalysisRequestsFolder" name="publish"
-      class=".resultsxlsx.ResultsXLSXView"
-      permission="senaite.core.permissions.ManageAnalysisRequests"
-      layer="bika.mining.interfaces.IBikaMiningLayer" />
-  <browser:page for="bika.lims.interfaces.IBatch" name="publish"
-      class=".resultsxlsx.ResultsXLSXView"
-      permission="senaite.core.permissions.ManageAnalysisRequests"
-      layer="bika.mining.interfaces.IBikaMiningLayer" />
+           xmlns:browser="http://namespaces.zope.org/browser"
+           xmlns:plone="http://namespaces.plone.org/plone">
+  <plone:static name="bika.mining" directory="report_templates"
+      type="senaite.impress.reports" />
   <browser:page for="*" name="ajax_publish"
-      class=".resultsxlsx.XLSXPublicationOnly" permission="zope2.View"
-      layer="bika.mining.interfaces.IBikaMiningLayer" />
-  <browser:page for="*" name="printview"
-      class=".resultsxlsx.ResultsXLSXView"
+      class=".resultsxlsx.MiningAjaxPublishView"
       permission="senaite.core.permissions.ManageAnalysisRequests"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="senaite.core.interfaces.IResultsReport" name="download_xlsx"
+      class=".resultsxlsx.XLSXDownloadView" permission="zope2.View"
       layer="bika.mining.interfaces.IBikaMiningLayer" />
   <browser:page for="senaite.core.interfaces.IResultsReport" name="download_pdf"
       class=".resultsxlsx.ReportDownloadView" permission="zope2.View"

@@ -110,8 +110,9 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         applyProfile(self.layer['portal'], 'bika.mining:default')
 
     def test_mining_publish_and_download_routes(self):
-        from bika.mining.browser.resultsxlsx import ResultsXLSXView
+        from senaite.impress.publishview import PublishView
         from bika.mining.browser.resultsxlsx import ReportEmailView
+        from bika.mining.browser.resultsxlsx import MiningAjaxPublishView
 
         @implementer(IClient)
         class Client(object):
@@ -124,16 +125,18 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         from zope.event import notify
         notify(BeforeTraverseEvent(self.layer['portal'], request))
         self.assertIsInstance(getMultiAdapter((Client(), request), name='publish'),
-                              ResultsXLSXView)
+                              PublishView)
         self.assertIsInstance(getMultiAdapter((Client(), request), name='email'),
                               ReportEmailView)
+        self.assertIsInstance(getMultiAdapter((Client(), request), name='ajax_publish'),
+                              MiningAjaxPublishView)
 
     def test_publication_stores_xlsx_and_updates_sample_tat(self):
         from bika.lims import api
-        from bika.mining.browser.resultsxlsx import ResultsXLSXView
+        from bika.mining.browser.resultsxlsx import MiningAjaxPublishView
+        from bika.mining.browser.resultsxlsx import REPORT_TEMPLATE, refresh_xlsx
         from bika.mining.resultsxlsx import MIME_TYPE
         from plone.app.testing import setRoles, TEST_USER_ID
-        from plone.protect.authenticator import createToken
         from DateTime import DateTime
         portal = self.layer['portal']
         request = self.layer['request']
@@ -156,25 +159,114 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         sample.reindexObject()
         portal.uid_catalog.catalog_object(sample, sample._getURL())
         request.method = 'POST'
-        request.form.update(action='publish', _authenticator=createToken())
-        data = ResultsXLSXView(sample, request)()
-        self.assertEqual(api.get_workflow_status_of(sample), 'published')
+        view = MiningAjaxPublishView(sample, request)
+        payload = {'template': REPORT_TEMPLATE, 'items': [api.get_uid(sample)],
+                   'action': 'email', 'format': 'A4', 'orientation': 'portrait'}
+        view.get_json = lambda: payload
+        html = view.ajax_render_reports()
+        self.assertIn('NO data', html)
+        self.assertIn(api.get_uid(sample), html)
+        payload['html'] = html
+        preview = view.ajax_load_preview()
+        self.assertIn('data:image/png', preview)
+        url = view.ajax_save_reports()
+        self.assertIn('/email?uids=', url)
+        self.assertEqual(api.get_workflow_status_of(sample), 'verified')
         reports = [obj for obj in sample.objectValues()
                    if obj.portal_type == 'ResultsReport']
         self.assertEqual(len(reports), 1)
-        self.assertEqual(reports[0].getPdf().contentType, MIME_TYPE)
-        self.assertEqual(reports[0].getPdf().data, data)
+        self.assertEqual(reports[0].getPdf().contentType, 'application/pdf')
+        self.assertTrue(reports[0].getPdf().data.startswith('%PDF'))
+        self.assertEqual(reports[0].xlsx.contentType, MIME_TYPE)
         self.assertEqual(reports[0].getContainedSamples(), [sample])
+        workflow.doActionFor(sample, 'publish')
+        refresh_xlsx(reports[0])
+        data = reports[0].xlsx.data
         sheet = load_workbook(BytesIO(data))['Reporting']
         self.assertEqual(sheet['A4'].value, sample.getId())
         self.assertEqual(sheet['M4'].value, 8.0)
         self.assertAlmostEqual(sheet['N4'].value, 1.0, places=2)
         self.assertEqual(sheet['O4'].value, 'On Time')
         self.assertIsNone(sheet['P4'].value)
-        from bika.mining.browser.resultsxlsx import ReportDownloadView
+        from bika.mining.browser.resultsxlsx import XLSXDownloadView
         downloaded = []
         request.response.write = downloaded.append
-        ReportDownloadView(reports[0], request)()
+        XLSXDownloadView(reports[0], request)()
         self.assertEqual(downloaded, [data])
         self.assertEqual(request.response.getHeader('Content-Type'), MIME_TYPE)
         self.assertIn('.xlsx', request.response.getHeader('Content-Disposition'))
+
+        from bika.mining.browser.resultsxlsx import ReportEmailView
+        class Email(ReportEmailView):
+            attachments = []
+        Email.reports = reports
+        email = Email(sample, request)
+        self.assertEqual(email.generated_attachments, [reports[0].xlsx])
+        attachments = email.email_attachments
+        self.assertEqual(len(attachments), 1)
+        self.assertEqual(attachments[0].get_filename(), 'MiningResults.xlsx')
+        self.assertEqual(attachments[0].get_content_type(), MIME_TYPE)
+        self.assertEqual(attachments[0].get_payload(decode=True), data)
+        self.assertEqual(email.attachment_count, 1)
+        self.assertAlmostEqual(email.total_size, len(data) / 1024.0)
+        self.assertTrue(email.report_attachment_data[0]['url'].endswith('/download_xlsx'))
+
+
+class TestMiningReportSelection(unittest.TestCase):
+    def test_other_templates_keep_their_existing_handlers(self):
+        from bika.mining.browser.resultsxlsx import MiningAjaxPublishView, REPORT_TEMPLATE
+        calls = []
+        class Legacy(object):
+            def ajax_templates(self):
+                return ['bika.coa:OtherMulti.pt']
+            def ajax_render_reports(self, *args):
+                calls.append('render')
+                return 'normal report'
+            def ajax_load_preview(self):
+                calls.append('preview')
+                return 'normal preview'
+            def ajax_save_reports(self):
+                calls.append('save')
+                return 'normal save'
+        view = MiningAjaxPublishView(None, None)
+        view.legacy_view = lambda: Legacy()
+        view.get_json = lambda: {'template': 'bika.coa:OtherMulti.pt'}
+        self.assertEqual(view.ajax_templates(), ['bika.coa:OtherMulti.pt', REPORT_TEMPLATE])
+        self.assertEqual(view.ajax_render_reports(), 'normal report')
+        self.assertEqual(view.ajax_load_preview(), 'normal preview')
+        self.assertEqual(view.ajax_save_reports(), 'normal save')
+        self.assertEqual(calls, ['render', 'preview', 'save'])
+
+    def test_mining_emails_exclude_placeholder_but_preserve_normal_pdf_and_csv(self):
+        from bika.mining.browser.resultsxlsx import ReportEmailView, MIME_TYPE
+        from ZPublisher.HTTPRequest import HTTPRequest
+        from ZPublisher.HTTPResponse import HTTPResponse
+        class Report(object):
+            def __init__(self, pdf, xlsx=None, csv=None):
+                self.pdf, self.xlsx, self.csv = pdf, xlsx, csv
+            def getPdf(self):
+                return self.pdf
+            def getMetadata(self):
+                return {'template': 'bika.coa:OtherMulti.pt'}
+        def blob(name, kind, data):
+            return type('Blob', (object,), {
+                'data': data, 'filename': unicode(name), 'contentType': kind})()
+        xlsx = blob('MiningResults.xlsx', MIME_TYPE, 'xlsx content')
+        placeholder = blob('MiningResultsPreview.pdf', 'application/pdf', 'NO data')
+        pdf = blob('OtherReport.pdf', 'application/pdf', 'normal PDF')
+        csv = blob('OtherReport.csv', 'text/csv', 'normal CSV')
+        class Email(ReportEmailView):
+            reports = [Report(placeholder, xlsx), Report(placeholder, xlsx),
+                       Report(pdf, csv=csv)]
+            attachments = []
+            email_csv_report_enabled = True
+        request = HTTPRequest(BytesIO(), {'SERVER_NAME': 'localhost',
+                                         'SERVER_PORT': '80',
+                                         'REQUEST_METHOD': 'GET'}, HTTPResponse())
+        view = Email(None, request)
+        self.assertEqual(view.generated_attachments, [xlsx, pdf, csv])
+        attachments = view.email_attachments
+        self.assertEqual([a.get_filename() for a in attachments],
+                         ['MiningResults.xlsx', 'OtherReport.pdf', 'OtherReport.csv'])
+        self.assertEqual([a.get_content_type() for a in attachments],
+                         [MIME_TYPE, 'application/pdf', 'text/csv'])

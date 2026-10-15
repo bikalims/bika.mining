@@ -7,7 +7,7 @@ from bika.mining.tat import elapsed_hours
 
 
 def prioritize_mining_layer(site, event):
-    """Place mining overrides before the installed PDF publisher layer."""
+    """Place mining attachment handlers before the base publisher layer."""
     from bika.mining.interfaces import IBikaMiningLayer
     from plone.browserlayer.layer import mark_layer
     from zope.interface import directlyProvidedBy, directlyProvides

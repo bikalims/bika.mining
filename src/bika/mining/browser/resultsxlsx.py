@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-"""Mining publication uses XLSX in the existing report binary field."""
+"""Mining XLSX attachments within the standard report preview/email flow."""
 from AccessControl import Unauthorized
 from DateTime import DateTime
 from bika.lims import api
 from bika.lims.interfaces import IAnalysisRequest
 from bika.lims.browser.publish.downloadview import DownloadView
 from bika.lims.browser.publish.emailview import EmailView
+from bika.lims.api import mail as mailapi
 from bika.lims.browser.workflow.client import WorkflowActionDownloadReportsAdapter
 from bika.lims.browser.workflow.client import WorkflowActionPublishSamplesAdapter
 from bika.lims.utils import get_link
@@ -13,16 +14,132 @@ from bika.mining import _
 from bika.mining.config import is_installed
 from bika.mining.resultsxlsx import MIME_TYPE, render_results
 from bika.mining.tat import actual_tat, target_hours
-from plone import protect
 from plone.namedfile.file import NamedBlobFile
-from Products.Five.browser import BrowserView
 from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
+from senaite.impress.ajax import AjaxPublishView
 from senaite.app.listing.interfaces import IListingViewAdapter
 from senaite.core.permissions import ManageAnalysisRequests
 from zope.interface import implementer
-from zExceptions import BadRequest
 from io import BytesIO
+from collections import OrderedDict
+import transaction
 import zipfile
+
+try:
+    from bika.coa.browser.publish.emailview import EmailView as BaseEmailView
+except ImportError:
+    BaseEmailView = EmailView
+
+REPORT_TEMPLATE = "bika.mining:MiningResultsXLSXMulti.pt"
+
+
+def get_xlsx(report):
+    blob = getattr(report, "xlsx", None)
+    if blob is None:
+        # Reports created before the preview/attachment split.
+        blob = report.getPdf()
+    return blob if blob and blob.contentType == MIME_TYPE else None
+
+
+def refresh_xlsx(report):
+    if getattr(report, "xlsx", None) is None:
+        return
+    samples = report.getContainedSamples() or [report.getSample()]
+    data = render_results([sample_row(sample) for sample in samples])
+    report.xlsx = NamedBlobFile(data=data, filename=report.xlsx.filename,
+                               contentType=MIME_TYPE)
+
+
+class MiningAjaxPublishView(AjaxPublishView):
+    """Add one XLSX template to the standard PDF preview and Save/Email flow."""
+
+    def legacy_view(self):
+        try:
+            from bika.coa import is_installed as coa_installed
+            from bika.coa.ajax import AjaxPublishView as CoaAjaxPublishView
+        except ImportError:
+            return AjaxPublishView(self.context, self.request)
+        if coa_installed():
+            return CoaAjaxPublishView(self.context, self.request)
+        return AjaxPublishView(self.context, self.request)
+
+    def ajax_templates(self):
+        templates = list(self.legacy_view().ajax_templates())
+        if REPORT_TEMPLATE not in templates:
+            templates.append(REPORT_TEMPLATE)
+        return templates
+
+    def ajax_render_reports(self, *args):
+        if self.get_json().get("template") == REPORT_TEMPLATE:
+            groups = self.selected_groups(self.get_json())
+            body = self.read_template(self.get_report_template(REPORT_TEMPLATE), self)
+            return u"\n".join(
+                u'<div class="report" uids="{}" client_uid="{}">{}</div>'.format(
+                    ",".join(api.get_uid(s) for s in samples), client_uid, body)
+                for client_uid, samples in groups.items())
+        return self.legacy_view().ajax_render_reports(*args)
+
+    def ajax_load_preview(self):
+        if self.get_json().get("template") == REPORT_TEMPLATE:
+            return super(MiningAjaxPublishView, self).ajax_load_preview()
+        return self.legacy_view().ajax_load_preview()
+
+    def ajax_save_reports(self):
+        data = self.get_json()
+        if data.get("template") != REPORT_TEMPLATE:
+            return self.legacy_view().ajax_save_reports()
+        if self.request.method != "POST":
+            raise Unauthorized
+        groups = self.selected_groups(data)
+        # Build every workbook before storing any reports.
+        workbooks = [(samples, render_results([sample_row(s) for s in samples]))
+                     for samples in groups.values()]
+        publisher = self.publisher
+        publisher.add_inline_css(self.get_print_css(
+            paperformat=data.get("format", "A4"),
+            orientation=data.get("orientation", "portrait")))
+        # The placeholder is generated on the server; submitted preview HTML
+        # is never used as the source of either results or sample selection.
+        html = '<div class="report"><h1>Mining Results XLSX</h1><p>NO data</p></div>'
+        pdf = publisher.write_pdf(publisher.parse_reports(html)[0])
+        reports = []
+        savepoint = transaction.savepoint(optimistic=True)
+        try:
+            for samples, workbook in workbooks:
+                primary = samples[0]
+                report = api.create(
+                    primary, "ResultsReport", sample=api.get_uid(primary),
+                    contained_samples=[api.get_uid(s) for s in samples],
+                    pdf=NamedBlobFile(data=pdf, filename=u"MiningResultsPreview.pdf",
+                                      contentType="application/pdf"),
+                    metadata={"template": api.safe_unicode(REPORT_TEMPLATE),
+                              "format": u"xlsx",
+                              "timestamp": api.safe_unicode(DateTime().ISO8601())})
+                report.xlsx = NamedBlobFile(data=workbook,
+                                           filename=u"MiningResults.xlsx",
+                                           contentType=MIME_TYPE)
+                reports.append(report)
+        except Exception:
+            savepoint.rollback()
+            raise
+        return self.get_exit_url_for(reports, action=data.get("action", "save"))
+
+    def selected_groups(self, data):
+        membership = api.get_tool("portal_membership")
+        groups = OrderedDict()
+        seen = set()
+        for uid in data.get("items", []):
+            sample = api.get_object_by_uid(uid, default=None) if api.is_uid(uid) else None
+            if sample is None or not IAnalysisRequest.providedBy(sample):
+                raise ValueError("Select valid samples for Mining Results XLSX")
+            if not membership.checkPermission(ManageAnalysisRequests, sample):
+                raise Unauthorized
+            if uid not in seen:
+                groups.setdefault(sample.getClientUID(), []).append(sample)
+                seen.add(uid)
+        if not groups:
+            raise ValueError("Select samples for Mining Results XLSX")
+        return groups
 
 
 def title(value):
@@ -65,98 +182,6 @@ def sample_row(sample):
     return {"metadata": metadata, "results": results}
 
 
-class ResultsXLSXView(BrowserView):
-    template = ViewPageTemplateFile("templates/resultsxlsx.pt")
-
-    def samples(self):
-        items = self.request.get("items", "")
-        uids = ([uid for uid in items.split(",") if uid]
-                if isinstance(items, basestring) else items)
-        if not uids and IAnalysisRequest.providedBy(self.context):
-            uids = [api.get_uid(self.context)]
-        samples = []
-        for uid in uids:
-            sample = (api.get_object_by_uid(uid, default=None)
-                      if api.is_uid(uid) else None)
-            if sample is None or not IAnalysisRequest.providedBy(sample):
-                raise ValueError("Select valid samples for Results XLSX")
-            if not api.get_tool("portal_membership").checkPermission(
-                    "View", sample):
-                raise Unauthorized
-            if sample not in samples:
-                samples.append(sample)
-        if not samples:
-            raise ValueError("Select samples for Results XLSX")
-        return samples
-
-    def __call__(self):
-        self.selected_samples = self.samples()
-        self.items = ",".join(api.get_uid(s) for s in self.selected_samples)
-        self.error = None
-        self.can_publish = all(api.get_workflow_status_of(s) in
-                               ("verified", "published")
-                               for s in self.selected_samples)
-        action = self.request.form.get("action")
-        if action == "download":
-            try:
-                data = render_results([sample_row(s) for s in self.selected_samples])
-            except ValueError as error:
-                self.error = api.safe_unicode(error)
-                return self.template()
-            return self.download(data)
-        if action == "publish":
-            if self.request.method != "POST":
-                raise Unauthorized
-            protect.CheckAuthenticator(self.request)
-            membership = api.get_tool("portal_membership")
-            workflow = api.get_tool("portal_workflow")
-            for sample in self.selected_samples:
-                if not membership.checkPermission(
-                        ManageAnalysisRequests, sample):
-                    raise Unauthorized
-            if not self.can_publish:
-                self.error = u"Only verified or published samples can be published"
-                return self.template()
-            if len(set(s.getClientUID() for s in self.selected_samples)) > 1:
-                self.error = u"Publish samples for one client at a time"
-                return self.template()
-            # Validate all title mappings before changing workflow state.
-            try:
-                render_results([sample_row(s) for s in self.selected_samples])
-            except ValueError as error:
-                self.error = api.safe_unicode(error)
-                return self.template()
-            for sample in self.selected_samples:
-                transition = ("republish" if api.get_workflow_status_of(sample)
-                              == "published" else "publish")
-                workflow.doActionFor(sample, transition)
-            data = render_results([sample_row(s) for s in self.selected_samples])
-            uids = [api.get_uid(s) for s in self.selected_samples]
-            for sample in self.selected_samples:
-                api.create(sample, "ResultsReport", sample=api.get_uid(sample),
-                           contained_samples=uids,
-                           pdf=NamedBlobFile(data=data, filename=u"Results.xlsx",
-                                             contentType=MIME_TYPE),
-                           metadata={"format": u"xlsx", "template": u"Lotus Results XLSX",
-                                     "timestamp": api.safe_unicode(DateTime().ISO8601())})
-            return self.download(data)
-        return self.template()
-
-    def download(self, data):
-        self.request.response.setHeader("Content-Type", MIME_TYPE)
-        self.request.response.setHeader("Content-Disposition",
-                                       'attachment; filename="Results.xlsx"')
-        self.request.response.setHeader("Content-Length", len(data))
-        self.request.response.setHeader("Cache-Control", "no-store")
-        return data
-
-
-class XLSXPublicationOnly(BrowserView):
-    """Prevent the old HTML-to-PDF AJAX endpoint on mining sites."""
-    def __call__(self):
-        raise BadRequest("Use Results XLSX to publish mining results")
-
-
 class ReportDownloadView(DownloadView):
     def __call__(self):
         blob = self.context.getPdf()
@@ -165,7 +190,86 @@ class ReportDownloadView(DownloadView):
         return super(ReportDownloadView, self).__call__()
 
 
-class ReportEmailView(EmailView):
+class XLSXDownloadView(DownloadView):
+    def __call__(self):
+        blob = get_xlsx(self.context)
+        if blob is None:
+            from zExceptions import NotFound
+            raise NotFound("No XLSX attachment on this report")
+        return self.download(blob.data, blob.filename, MIME_TYPE)
+
+
+class ReportEmailView(BaseEmailView):
+    template = ViewPageTemplateFile("templates/email.pt")
+
+    @property
+    def report_attachment_data(self):
+        files = self.generated_attachments
+        rows = []
+        for blob in files:
+            for report in self.reports:
+                if get_xlsx(report) is blob:
+                    url = report.absolute_url() + "/download_xlsx"
+                    break
+                if report.getPdf() is blob:
+                    url = report.absolute_url() + "/download_pdf"
+                    break
+                if getattr(report, "csv", None) is blob:
+                    url = report.absolute_url() + "/download/csv"
+                    break
+            rows.append({"filename": blob.filename, "url": url,
+                         "filesize": "{:.2f} KB".format(len(blob.data) / 1024.0)})
+        return rows
+
+    @property
+    def generated_attachments(self):
+        files = []
+        seen_xlsx = set()
+        csv_found = False
+        for report in self.reports:
+            xlsx = get_xlsx(report)
+            if xlsx:
+                key = (xlsx.filename, xlsx.data)
+                if key not in seen_xlsx:
+                    files.append(xlsx)
+                    seen_xlsx.add(key)
+                continue
+            pdf = self.get_pdf(report)
+            if pdf is not None:
+                files.append(pdf)
+            # Preserve the COA rule for normal reports: at most one CSV,
+            # excluding templates marked as Single.
+            csv = getattr(report, "csv", None)
+            if (pdf is not None and csv and not csv_found and
+                    "Single" not in report.getMetadata().get("template", "") and
+                    getattr(self, "email_csv_report_enabled", False)):
+                files.append(csv)
+                csv_found = True
+        return files
+
+    @property
+    def email_attachments(self):
+        files = self.generated_attachments + [a.getAttachmentFile()
+                                              for a in self.attachments]
+        return [mailapi.to_email_attachment(blob.data, blob.filename,
+                                            mime_type=blob.contentType)
+                for blob in files]
+
+    @property
+    def attachment_count(self):
+        return len(self.generated_attachments) + len(self.attachments)
+
+    @property
+    def total_size(self):
+        files = self.generated_attachments + [a.getAttachmentFile()
+                                              for a in self.attachments]
+        return sum(len(blob.data) for blob in files) / 1024.0
+
+    def publish_samples(self):
+        super(ReportEmailView, self).publish_samples()
+        for report in self.reports:
+            refresh_xlsx(report)
+
     def get_report_filename(self, report):
         blob = report.getPdf()
         if blob and blob.contentType == MIME_TYPE:
@@ -180,7 +284,7 @@ class DownloadReportsAdapter(WorkflowActionDownloadReportsAdapter):
         for report in reports:
             if not api.get_tool("portal_membership").checkPermission("View", report):
                 raise Unauthorized
-            blob = self.get_pdf(report)
+            blob = get_xlsx(report) or self.get_pdf(report)
             if blob is None:
                 continue
             extension = "xlsx" if blob.contentType == MIME_TYPE else "pdf"
@@ -201,6 +305,12 @@ class PublishReportsAdapter(WorkflowActionPublishSamplesAdapter):
     def get_sample_uids_in_report(self, report):
         return report.getContainedSampleUIDs() or [report.getSampleUID()]
 
+    def __call__(self, action, uids):
+        response = super(PublishReportsAdapter, self).__call__(action, uids)
+        for uid in uids:
+            refresh_xlsx(api.get_object_by_uid(uid))
+        return response
+
 
 @implementer(IListingViewAdapter)
 class ResultsListingAdapter(object):
@@ -210,14 +320,16 @@ class ResultsListingAdapter(object):
 
     def before_render(self):
         if is_installed():
-            self.listing.columns["PDF"]["title"] = _(u"Download XLSX")
+            self.listing.columns["XLSX"] = {"title": _(u"Download XLSX")}
+            for state in self.listing.review_states:
+                if "XLSX" not in state["columns"]:
+                    state["columns"].append("XLSX")
 
     def folder_item(self, obj, item, index):
         if not is_installed():
             return item
         report = api.get_object(obj)
-        blob = report.getPdf()
-        if blob and blob.contentType == MIME_TYPE:
-            item.setdefault("replace", {})["PDF"] = get_link(
-                report.absolute_url() + "/download_pdf", value="XLSX")
+        if get_xlsx(report):
+            item.setdefault("replace", {})["XLSX"] = get_link(
+                report.absolute_url() + "/download_xlsx", value="XLSX")
         return item
