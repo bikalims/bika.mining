@@ -18,6 +18,24 @@ def post_install(context):
     setup_mining_folders(context)
     from bika.mining.idserver import setup_xlsx_format
     setup_xlsx_format()
+    setup_sampling_methods()
+
+
+def setup_sampling_methods(context=None):
+    """Reuse Sampling Deviations for mining sampling methods."""
+    from bika.lims import api
+    folder = api.get_senaite_setup().samplingdeviations
+    folder.setTitle(u"Sampling Methods")
+    folder.reindexObject()
+    types = api.get_tool("portal_types")
+    types["SamplingDeviations"].title = u"Sampling Methods"
+    types["SamplingDeviation"].title = u"Sampling Method"
+    existing = {api.get_title(obj).strip().lower()
+                for obj in folder.objectValues()
+                if api.get_portal_type(obj) == "SamplingDeviation"}
+    for name in (u"Grab", u"Composite", u"Profile/Inventory"):
+        if name.lower() not in existing:
+            api.create(folder, "SamplingDeviation", title=name)
 
 
 def setup_matrixreferences(context):

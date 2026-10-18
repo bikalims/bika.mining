@@ -47,9 +47,27 @@ def refresh_xlsx(report):
     if getattr(report, "xlsx", None) is None:
         return
     samples = report.getContainedSamples() or [report.getSample()]
-    data = render_results([sample_row(sample) for sample in samples])
+    data = render_results([sample_row(sample) for sample in samples],
+                          report_header=report_header(report, samples))
     report.xlsx = NamedBlobFile(data=data, filename=report.xlsx.filename,
                                contentType=MIME_TYPE)
+
+
+def report_header(report, samples):
+    published = []
+    for sample in samples:
+        for history in getattr(sample, "workflow_history", {}).values():
+            published.extend(entry for entry in history
+                             if entry.get("action") == "publish"
+                             and entry.get("review_state") == "published")
+    latest = max(published, key=lambda entry: entry["time"]) if published else None
+    return {
+        "A": title(samples[0].getClient()),
+        "C": report.xlsx.filename,
+        "E": latest["time"].strftime("%Y-%m-%d %H:%M") if latest else u"",
+        "G": (api.get_user_fullname(latest["actor"]) or latest["actor"])
+             if latest else u"",
+    }
 
 
 class MiningAjaxPublishView(AjaxPublishView):
@@ -121,6 +139,7 @@ class MiningAjaxPublishView(AjaxPublishView):
                 report.xlsx = NamedBlobFile(data=workbook,
                                            filename=xlsx_filename(report),
                                            contentType=MIME_TYPE)
+                refresh_xlsx(report)
                 reports.append(report)
         except Exception:
             savepoint.rollback()
@@ -162,7 +181,7 @@ def sample_row(sample):
     metadata = {
         "A": sample.getId(), "B": title(sample_field(sample, "MatrixReference")),
         "C": title(point), "D": point.Description() if point else u"",
-        "E": sample.getSampleTypeTitle(), "F": sample.getPriorityText(),
+        "E": sample.getSamplingDeviationTitle(), "F": sample.getPriorityText(),
         "G": title(sample_field(sample, "Classification")),
         "H": title(sample_field(sample, "DrumBatch")),
         "I": title(sample_field(sample, "Shift")),

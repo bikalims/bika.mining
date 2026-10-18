@@ -93,4 +93,9 @@
       source="1003" destination="1004" profile="bika.mining:default"
       handler=".idserver.setup_xlsx_format" />
 
+  <genericsetup:upgradeStep title="Configure mining Sampling Methods"
+      description="Reuse Sampling Deviations for Grab, Composite and Profile/Inventory"
+      source="1004" destination="1005" profile="bika.mining:default"
+      handler=".setuphandlers.setup_sampling_methods" />
+
 </configure>

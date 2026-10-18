@@ -2,6 +2,9 @@
            xmlns:plone="http://namespaces.plone.org/plone">
   <include package="archetypes.schemaextender" />
   <include package="plone.behavior" file="meta.zcml" />
+  <adapter name="bika.mining.samplingmethod.schemamodifier"
+      provides="archetypes.schemaextender.interfaces.ISchemaModifier"
+      factory=".analysisrequest.SamplingMethodSchemaModifier" />
   <adapter name="bika.mining.analysisrequest.schemaextender"
       provides="archetypes.schemaextender.interfaces.ISchemaExtender"
       factory=".analysisrequest.AnalysisRequestSchemaExtender" />

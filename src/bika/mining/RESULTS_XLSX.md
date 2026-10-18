@@ -24,3 +24,15 @@ obsolete MiningResultsXLSX row from the earlier implementation.
 The filename is assigned when the report is saved and retained when its results
 are refreshed. Email attachments, direct downloads, and files inside bulk ZIP
 downloads use this saved name. Previously saved reports retain their filenames.
+
+The export uses `setupdata/Bika Lotus Results XLSX COA 03.xlsx` (v3), preserving
+its category bands, rotated result headings, and fixed columns through DQ.
+CO3 remains in Final product impurities, as in that workbook. Row 1 contains
+the client name (A1), saved XLSX filename (C1), latest sample publication time
+(E1), and publisher (G1). Publication details remain blank until publication.
+
+Column E uses the sample's existing `SamplingDeviation` reference, presented
+as **Sampling Method**. The 1004 → 1005 upgrade renames its setup lookup to
+**Sampling Methods** and adds Grab, Composite, and Profile/Inventory without
+replacing existing records or references. Restart the application and run the
+bika.mining add-on upgrade to enable these choices on an existing site.

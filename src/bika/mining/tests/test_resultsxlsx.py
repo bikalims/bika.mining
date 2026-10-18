@@ -27,22 +27,23 @@ class TestResultsXLSX(unittest.TestCase):
         ])
         sheet = workbook["Reporting"]
         self.assertEqual(sheet["Y4"].value, "0")
-        self.assertEqual(sheet["CX4"].value, "<0.1")
+        self.assertEqual(sheet["DQ4"].value, "<0.1")
         self.assertEqual(sheet["P5"].value, "12.30")
         self.assertIsNone(sheet["P4"].value)
         self.assertIsNone(sheet["Y5"].value)
         self.assertIsNone(sheet["B4"].value)
         self.assertEqual(sheet["M4"].value, 0)
         self.assertEqual(sheet.max_row, 5)
-        self.assertEqual(sheet.max_column, 102)
-        self.assertEqual(sheet.auto_filter.ref, "B3:CX5")
+        self.assertEqual(sheet.max_column, 121)
+        self.assertEqual(sheet.auto_filter.ref, "B3:DQ5")
 
     def test_template_formatting_and_headers_preserved(self):
         original = load_workbook(TEMPLATE)["Reporting"]
         sheet = self.export([{"metadata": {}, "results": {}}])["Reporting"]
         for row in original.iter_rows(min_row=1, max_row=3):
             for cell in row:
-                self.assertEqual(sheet[cell.coordinate].value, cell.value)
+                expected = None if cell.coordinate in ('A1', 'C1', 'E1', 'G1') else cell.value
+                self.assertEqual(sheet[cell.coordinate].value, expected)
                 self.assertEqual(sheet[cell.coordinate]._style, cell._style)
         self.assertEqual(list(sheet.merged_cells.ranges),
                          list(original.merged_cells.ranges))
@@ -50,12 +51,60 @@ class TestResultsXLSX(unittest.TestCase):
         self.assertEqual(sheet.column_dimensions["P"].width,
                          original.column_dimensions["P"].width)
 
+    def test_chlorine_ppm_fills_both_fixed_sections_and_leaves_missing_blank(self):
+        sheet = self.export([
+            {"metadata": {}, "results": {"Cl (ppm)": "12"}},
+            {"metadata": {}, "results": {}},
+        ])["Reporting"]
+        self.assertEqual(sheet["CB3"].value, "Cl (ppm)")
+        self.assertEqual(sheet["DD3"].value, "Cl (ppm)")
+        self.assertEqual(sheet["CB4"].value, "12")
+        self.assertEqual(sheet["DD4"].value, "12")
+        self.assertIsNone(sheet["CB5"].value)
+        self.assertIsNone(sheet["DD5"].value)
+
     def test_more_samples_than_example_rows(self):
         rows = [{"metadata": {"A": "Sample-{}".format(i)},
                  "results": {"NH4 (ug/gU)": str(i)}} for i in range(12)]
         sheet = self.export(rows)["Reporting"]
         self.assertEqual(sheet["A15"].value, "Sample-11")
-        self.assertEqual(sheet["CX15"].value, "11")
+        self.assertEqual(sheet["DQ15"].value, "11")
+
+    def test_v3_services_and_layout(self):
+        destinations = {
+            'AE': 'Granulometry (% passing 6 mm)', 'AF': 'Slurry SG (t/m3)',
+            'AH': 'Solids (% w/w)', 'AI': 'Resin concentration (% v/v)',
+            'AJ': 'Resin carry-over (g/L)', 'AK': 'Wet mass of cut (kg)',
+            'AL': 'Dry mass of cut (kg)', 'AM': 'Mass recovered (kg)',
+            'AN': 'Mass produced (t)', 'AO': 'Volume (m3)',
+            'AT': 'pH', 'AU': 'ORP (mV)', 'AX': 'Dissolved oxygen (ppb)',
+            'CN': 'Cycles of concentration (ratio)',
+            'CO': 'Corrosion inhibitor residual (ppm)',
+            'CQ': 'Resin working capacity (g U/L)',
+            'CR': 'Bead size distribution (%)', 'CS': 'Whole-bead count (%)',
+            'DF': 'CO3 (ug/gU)',
+        }
+        results = dict((name, str(index)) for index, name in
+                       enumerate(sorted(destinations.values())))
+        sheet = self.export([{'metadata': {}, 'results': results}])['Reporting']
+        for col, name in destinations.items():
+            self.assertEqual(sheet[col + '3'].value, name)
+            self.assertEqual(sheet[col + '4'].value, results[name])
+        self.assertEqual(sheet['A2'].value, 'LIMS Sample ID')
+        self.assertEqual(sheet['AT2'].value, 'Field / water')
+        for row in sheet.iter_rows(min_row=3, max_row=3, min_col=16, max_col=121):
+            for cell in row:
+                self.assertEqual(cell.alignment.textRotation, 90)
+
+    def test_report_header_and_empty_export(self):
+        header = {'A': 'Plant', 'C': 'COA26-0001 Plant.xlsx',
+                  'E': '2026-10-18 09:15', 'G': 'Publisher'}
+        sheet = load_workbook(BytesIO(render_results(
+            [], report_header=header)))['Reporting']
+        for col, value in header.items():
+            self.assertEqual(sheet[col + '1'].value, value)
+        self.assertEqual(sheet.max_row, 3)
+        self.assertEqual(sheet.auto_filter.ref, 'B3:DQ3')
 
     def test_unknown_service_title_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -131,6 +180,24 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         self.assertIsInstance(getMultiAdapter((Client(), request), name='ajax_publish'),
                               MiningAjaxPublishView)
 
+    def test_sampling_methods_reuse_existing_records(self):
+        from bika.lims import api
+        from bika.mining.setuphandlers import setup_sampling_methods
+        from plone.app.testing import setRoles, TEST_USER_ID
+        setRoles(self.layer['portal'], TEST_USER_ID, ['Manager'])
+        folder = api.get_senaite_setup().samplingdeviations
+        original = dict((obj.Title(), api.get_uid(obj))
+                        for obj in folder.objectValues())
+        self.assertEqual(set(original), {'Grab', 'Composite', 'Profile/Inventory'})
+        legacy = api.create(folder, 'SamplingDeviation', title=u'Existing method')
+        setup_sampling_methods()
+        self.assertEqual(folder.Title(), 'Sampling Methods')
+        self.assertEqual(api.get_title(legacy), 'Existing method')
+        for obj in folder.objectValues():
+            if obj.Title() in original:
+                self.assertEqual(api.get_uid(obj), original[obj.Title()])
+        self.assertEqual(len(folder.objectValues()), 4)
+
     def test_publication_stores_xlsx_and_updates_sample_tat(self):
         from bika.lims import api
         from bika.mining.browser.resultsxlsx import MiningAjaxPublishView
@@ -161,6 +228,12 @@ class TestResultsPublicationRegistration(unittest.TestCase):
                             DateReceived=DateTime() - 1.0 / 24,
                             TargetTAT=8.0)
         sample.Schema().getField('TargetTAT').set(sample, 8.0)
+        methods = api.get_senaite_setup().samplingdeviations
+        method = next(obj for obj in methods.objectValues()
+                      if obj.Title() == 'Composite')
+        sample.Schema().getField('SamplingDeviation').set(sample, method)
+        self.assertEqual(sample.Schema().getField('SamplingDeviation').widget.label,
+                         'Sampling Method')
         workflow = api.get_tool('portal_workflow')
         chain = workflow.getChainFor(sample)
         workflow.setStatusOf(chain[0], sample, {'review_state': 'verified'})
@@ -191,6 +264,11 @@ class TestResultsPublicationRegistration(unittest.TestCase):
             reports[0].xlsx.filename,
             r'^COA\d{2}-\d{4} LOTUS \d{6} \d{2}:\d{2}\.xlsx$')
         filename = reports[0].xlsx.filename
+        saved_sheet = load_workbook(BytesIO(reports[0].xlsx.data))['Reporting']
+        self.assertEqual(saved_sheet['A1'].value, 'Lotus test')
+        self.assertEqual(saved_sheet['C1'].value, filename)
+        self.assertIsNone(saved_sheet['E1'].value)
+        self.assertIsNone(saved_sheet['G1'].value)
         self.assertEqual(api.normalize_filename(filename[:-5]),
                          api.get_id(reports[0]))
         self.assertEqual(reports[0].getContainedSamples(), [sample])
@@ -200,6 +278,10 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         data = reports[0].xlsx.data
         sheet = load_workbook(BytesIO(data))['Reporting']
         self.assertEqual(sheet['A4'].value, sample.getId())
+        self.assertEqual(sheet['E4'].value, 'Composite')
+        self.assertEqual(sheet['E1'].value,
+                         sample.getDatePublished().strftime('%Y-%m-%d %H:%M'))
+        self.assertTrue(sheet['G1'].value)
         self.assertEqual(sheet['M4'].value, 8.0)
         self.assertAlmostEqual(sheet['N4'].value, 1.0, places=2)
         self.assertEqual(sheet['O4'].value, 'On Time')

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from archetypes.schemaextender.interfaces import IBrowserLayerAwareExtender
 from archetypes.schemaextender.interfaces import ISchemaExtender
+from archetypes.schemaextender.interfaces import ISchemaModifier
 from bika.lims import FieldEditContact
 from bika.lims.interfaces import IAnalysisRequest
 from bika.mining import _
@@ -45,6 +46,22 @@ def validate_target_tat(value):
     if not 0 <= hours < float("inf"):
         return "Target TAT must be a finite, non-negative number of hours"
     return True
+
+
+@implementer(ISchemaModifier, IBrowserLayerAwareExtender)
+class SamplingMethodSchemaModifier(object):
+    adapts(IAnalysisRequest)
+    layer = IBikaMiningLayer
+
+    def __init__(self, context):
+        self.context = context
+
+    def fiddle(self, schema):
+        field = schema["SamplingDeviation"]
+        field.widget.label = _(u"Sampling Method")
+        field.widget.description = _(
+            u"Select Grab, Composite or Profile/Inventory for this sample.")
+        return schema
 
 
 @implementer(ISchemaExtender, IBrowserLayerAwareExtender)
