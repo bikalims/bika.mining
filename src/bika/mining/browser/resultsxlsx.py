@@ -12,6 +12,7 @@ from bika.lims.browser.workflow.client import WorkflowActionPublishSamplesAdapte
 from bika.lims.utils import get_link
 from bika.mining import _
 from bika.mining.config import is_installed
+from bika.mining.idserver import setup_xlsx_format, xlsx_filename
 from bika.mining.resultsxlsx import MIME_TYPE, render_results
 from bika.mining.tat import actual_tat, target_hours
 from plone.namedfile.file import NamedBlobFile
@@ -22,6 +23,7 @@ from senaite.core.permissions import ManageAnalysisRequests
 from zope.interface import implementer
 from io import BytesIO
 from collections import OrderedDict
+from six.moves.urllib.parse import quote
 import transaction
 import zipfile
 
@@ -105,6 +107,7 @@ class MiningAjaxPublishView(AjaxPublishView):
         reports = []
         savepoint = transaction.savepoint(optimistic=True)
         try:
+            setup_xlsx_format()
             for samples, workbook in workbooks:
                 primary = samples[0]
                 report = api.create(
@@ -116,7 +119,7 @@ class MiningAjaxPublishView(AjaxPublishView):
                               "format": u"xlsx",
                               "timestamp": api.safe_unicode(DateTime().ISO8601())})
                 report.xlsx = NamedBlobFile(data=workbook,
-                                           filename=u"MiningResults.xlsx",
+                                           filename=xlsx_filename(report),
                                            contentType=MIME_TYPE)
                 reports.append(report)
         except Exception:
@@ -191,6 +194,9 @@ class ReportDownloadView(DownloadView):
 
 
 class XLSXDownloadView(DownloadView):
+    def download(self, data, filename, content_type=MIME_TYPE):
+        download_xlsx(self.request, data, filename)
+
     def __call__(self):
         blob = get_xlsx(self.context)
         if blob is None:
@@ -271,13 +277,33 @@ class ReportEmailView(BaseEmailView):
             refresh_xlsx(report)
 
     def get_report_filename(self, report):
-        blob = report.getPdf()
-        if blob and blob.contentType == MIME_TYPE:
-            return u"{}.xlsx".format(api.get_id(report.getSample()))
+        blob = get_xlsx(report)
+        if blob:
+            return blob.filename
         return super(ReportEmailView, self).get_report_filename(report)
 
 
+def xlsx_disposition(filename):
+    return "attachment; filename*=UTF-8''{}".format(
+        quote(api.safe_unicode(filename).encode("utf-8"), safe=""))
+
+
+def download_xlsx(request, data, filename):
+    response = request.response
+    response.setHeader("Content-Disposition", xlsx_disposition(filename))
+    response.setHeader("Content-Type", MIME_TYPE)
+    response.setHeader("Content-Length", len(data))
+    response.setHeader("Cache-Control", "no-store")
+    response.setHeader("Pragma", "no-cache")
+    response.write(data)
+
+
 class DownloadReportsAdapter(WorkflowActionDownloadReportsAdapter):
+    def download(self, data, filename, type="application/zip"):
+        if type == MIME_TYPE:
+            return download_xlsx(self.request, data, filename)
+        return super(DownloadReportsAdapter, self).download(data, filename, type=type)
+
     def __call__(self, action, uids):
         reports = [api.get_object_by_uid(uid) for uid in uids]
         files = []
@@ -290,6 +316,8 @@ class DownloadReportsAdapter(WorkflowActionDownloadReportsAdapter):
             extension = "xlsx" if blob.contentType == MIME_TYPE else "pdf"
             filename = u"{}-{}.{}".format(
                 api.get_id(report.getSample()), api.get_id(report), extension)
+            if blob.contentType == MIME_TYPE:
+                filename = blob.filename
             files.append((filename, blob))
         if len(files) == 1:
             filename, blob = files[0]

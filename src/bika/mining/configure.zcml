@@ -16,6 +16,9 @@
 
   <include package=".browser" />
   <include package=".extenders" />
+  <adapter for="zope.interface.Interface"
+      provides="senaite.core.interfaces.IIdServerVariables"
+      factory=".idserver.ReportVariables" />
   <subscriber for="Products.CMFCore.interfaces.ISiteRoot
                    zope.traversing.interfaces.IBeforeTraverseEvent"
       handler=".events.prioritize_mining_layer" />
@@ -84,5 +87,10 @@
       description="Refresh Sample due dates and published turnaround values"
       source="1002" destination="1003" profile="bika.mining:default"
       handler=".setuphandlers.upgrade_sample_tat" />
+
+  <genericsetup:upgradeStep title="Configure mining XLSX filenames"
+      description="Use ResultsReport ID Server formatting for results workbooks"
+      source="1003" destination="1004" profile="bika.mining:default"
+      handler=".idserver.setup_xlsx_format" />
 
 </configure>

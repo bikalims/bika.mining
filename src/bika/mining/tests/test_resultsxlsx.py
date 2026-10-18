@@ -141,6 +141,15 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         portal = self.layer['portal']
         request = self.layer['request']
         setRoles(portal, TEST_USER_ID, ['Manager'])
+        from bika.mining.idserver import REPORT_TYPE, DEFAULT_FORMAT
+        setup = api.get_senaite_setup()
+        rows = list(setup.getIDFormatting())
+        for row in rows:
+            if row['portal_type'] == REPORT_TYPE:
+                row['form'] = DEFAULT_FORMAT
+                row['sequence_type'] = 'generated'
+                row['split_length'] = 1
+        setup.setIDFormatting(rows)
         alsoProvides(request, IBikaMiningLayer)
         from plone.browserlayer.utils import registered_layers
         self.assertIn(IBikaMiningLayer, registered_layers())
@@ -178,9 +187,16 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         self.assertEqual(reports[0].getPdf().contentType, 'application/pdf')
         self.assertTrue(reports[0].getPdf().data.startswith('%PDF'))
         self.assertEqual(reports[0].xlsx.contentType, MIME_TYPE)
+        self.assertRegexpMatches(
+            reports[0].xlsx.filename,
+            r'^COA\d{2}-\d{4} LOTUS \d{6} \d{2}:\d{2}\.xlsx$')
+        filename = reports[0].xlsx.filename
+        self.assertEqual(api.normalize_filename(filename[:-5]),
+                         api.get_id(reports[0]))
         self.assertEqual(reports[0].getContainedSamples(), [sample])
         workflow.doActionFor(sample, 'publish')
         refresh_xlsx(reports[0])
+        self.assertEqual(reports[0].xlsx.filename, filename)
         data = reports[0].xlsx.data
         sheet = load_workbook(BytesIO(data))['Reporting']
         self.assertEqual(sheet['A4'].value, sample.getId())
@@ -204,15 +220,44 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         self.assertEqual(email.generated_attachments, [reports[0].xlsx])
         attachments = email.email_attachments
         self.assertEqual(len(attachments), 1)
-        self.assertEqual(attachments[0].get_filename(), 'MiningResults.xlsx')
+        self.assertEqual(attachments[0].get_filename(), filename)
         self.assertEqual(attachments[0].get_content_type(), MIME_TYPE)
         self.assertEqual(attachments[0].get_payload(decode=True), data)
         self.assertEqual(email.attachment_count, 1)
         self.assertAlmostEqual(email.total_size, len(data) / 1024.0)
         self.assertTrue(email.report_attachment_data[0]['url'].endswith('/download_xlsx'))
 
+        from bika.mining.idserver import setup_xlsx_format, xlsx_filename
+        setup = api.get_senaite_setup()
+        rows = list(setup.getIDFormatting())
+        for row in rows:
+            if row['portal_type'] == REPORT_TYPE:
+                row['form'] = u'TEST{year}-{seq:04d} {clientId} {hh:mm}'
+        setup.setIDFormatting(rows)
+        setup_xlsx_format()
+        self.assertFalse(any(row['portal_type'] == 'MiningResultsXLSX'
+                             for row in setup.getIDFormatting()))
+        extra = api.create(sample, 'ResultsReport', sample=api.get_uid(sample))
+        first = xlsx_filename(extra)
+        self.assertEqual(xlsx_filename(extra), first)
+        extra = api.create(sample, 'ResultsReport', sample=api.get_uid(sample))
+        second = xlsx_filename(extra)
+        self.assertRegexpMatches(first, r'^TEST\d{2}-0001 LOTUS \d{2}:\d{2}\.xlsx$')
+        self.assertRegexpMatches(second, r'^TEST\d{2}-0002 LOTUS \d{2}:\d{2}\.xlsx$')
+
+        from bika.mining.browser.resultsxlsx import DownloadReportsAdapter
+        adapter = DownloadReportsAdapter(sample, request)
+        adapter.download = lambda data, name, **kw: name
+        self.assertEqual(adapter('download', [api.get_uid(reports[0])]), filename)
+
 
 class TestMiningReportSelection(unittest.TestCase):
+    def test_time_variable_uses_hours_and_minutes(self):
+        from DateTime import DateTime
+        from bika.mining.idserver import ReportTime
+        self.assertEqual(u'{hh:mm}'.format(
+            hh=ReportTime(DateTime('2026/10/08 09:15:00'))), u'09:15')
+
     def test_other_templates_keep_their_existing_handlers(self):
         from bika.mining.browser.resultsxlsx import MiningAjaxPublishView, REPORT_TEMPLATE
         calls = []

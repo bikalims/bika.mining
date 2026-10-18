@@ -16,6 +16,8 @@ class HiddenProfiles(object):
 def post_install(context):
     """Post install script"""
     setup_mining_folders(context)
+    from bika.mining.idserver import setup_xlsx_format
+    setup_xlsx_format()
 
 
 def setup_matrixreferences(context):
