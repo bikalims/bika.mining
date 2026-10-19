@@ -2,6 +2,7 @@
 import unittest
 import zipfile
 from io import BytesIO
+from copy import copy
 from openpyxl import load_workbook
 from bika.mining.resultsxlsx import TEMPLATE, render_results
 from senaite.core.tests.layers import BASE_LAYER_FIXTURE
@@ -47,7 +48,17 @@ class TestResultsXLSX(unittest.TestCase):
                 self.assertEqual(sheet[cell.coordinate]._style, cell._style)
         self.assertEqual(list(sheet.merged_cells.ranges),
                          list(original.merged_cells.ranges))
-        self.assertEqual(sheet["CX4"]._style, original["CX4"]._style)
+        for row in sheet.iter_rows(min_row=4, max_row=4):
+            for cell in row:
+                self.assertEqual(cell.font.name, 'Arial')
+                self.assertEqual(cell.font.color.rgb, 'FF000000')
+                self.assertFalse(cell.font.italic)
+                self.assertFalse(cell.font.bold)
+                source_cell = original[cell.coordinate]
+                self.assertEqual(copy(cell.alignment), copy(source_cell.alignment))
+                self.assertEqual(copy(cell.fill), copy(source_cell.fill))
+                self.assertEqual(copy(cell.border), copy(source_cell.border))
+                self.assertEqual(cell.number_format, source_cell.number_format)
         self.assertEqual(sheet.column_dimensions["P"].width,
                          original.column_dimensions["P"].width)
 
@@ -120,7 +131,8 @@ class TestResultsXLSX(unittest.TestCase):
         with zipfile.ZipFile(TEMPLATE) as source:
             with zipfile.ZipFile(BytesIO(data)) as output:
                 for name in source.namelist():
-                    if name not in ("xl/worksheets/sheet1.xml", "xl/workbook.xml"):
+                    if name not in ("xl/worksheets/sheet1.xml", "xl/workbook.xml",
+                                    "xl/styles.xml"):
                         self.assertEqual(source.read(name), output.read(name))
 
 

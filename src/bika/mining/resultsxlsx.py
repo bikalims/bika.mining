@@ -44,6 +44,39 @@ def set_value(doc, cell, value):
         cell.appendChild(node)
 
 
+def set_results_fonts(styles, row):
+    """Give body cells regular black Arial without changing header styles."""
+    fonts = styles.getElementsByTagName("fonts")[0]
+    formats = styles.getElementsByTagName("cellXfs")[0]
+    original_fonts = list(fonts.getElementsByTagName("font"))
+    original_formats = list(formats.getElementsByTagName("xf"))
+    font_map, format_map = {}, {}
+    for cell in row.getElementsByTagName("c"):
+        style_id = int(cell.getAttribute("s") or 0)
+        if style_id not in format_map:
+            style = original_formats[style_id].cloneNode(deep=True)
+            font_id = int(style.getAttribute("fontId") or 0)
+            if font_id not in font_map:
+                font = original_fonts[font_id].cloneNode(deep=True)
+                for child in list(font.childNodes):
+                    if child.nodeName in ("b", "i", "name", "color", "scheme"):
+                        font.removeChild(child)
+                for tag, attribute, value in (("name", "val", "Arial"),
+                                               ("color", "rgb", "FF000000")):
+                    node = styles.createElementNS(NS, tag)
+                    node.setAttribute(attribute, value)
+                    font.appendChild(node)
+                font_map[font_id] = len(fonts.getElementsByTagName("font"))
+                fonts.appendChild(font)
+            style.setAttribute("fontId", str(font_map[font_id]))
+            style.setAttribute("applyFont", "1")
+            format_map[style_id] = len(formats.getElementsByTagName("xf"))
+            formats.appendChild(style)
+        cell.setAttribute("s", str(format_map[style_id]))
+    fonts.setAttribute("count", str(len(fonts.getElementsByTagName("font"))))
+    formats.setAttribute("count", str(len(formats.getElementsByTagName("xf"))))
+
+
 def render_results(rows, template=TEMPLATE, report_header=None):
     """Rows contain metadata A:O and results keyed by exact service Title."""
     output = BytesIO()
@@ -72,6 +105,8 @@ def render_results(rows, template=TEMPLATE, report_header=None):
         style_row = next(row for row in template_rows
                          if row.getAttribute("r") == "4")
         prototype = style_row.cloneNode(deep=True)
+        styles = minidom.parseString(source.read("xl/styles.xml"))
+        set_results_fonts(styles, prototype)
         for row in list(template_rows):
             if int(row.getAttribute("r")) >= 4:
                 data.removeChild(row)
@@ -110,5 +145,7 @@ def render_results(rows, template=TEMPLATE, report_header=None):
                     content = doc.toxml(encoding="UTF-8")
                 elif entry.filename == "xl/workbook.xml":
                     content = workbook.toxml(encoding="UTF-8")
+                elif entry.filename == "xl/styles.xml":
+                    content = styles.toxml(encoding="UTF-8")
                 target.writestr(entry, content)
     return output.getvalue()

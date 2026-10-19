@@ -361,6 +361,9 @@ class PublishReportsAdapter(WorkflowActionPublishSamplesAdapter):
 
 @implementer(IListingViewAdapter)
 class ResultsListingAdapter(object):
+    # Apply after bika.coa's default-priority report listing adapter.
+    priority_order = 2000
+
     def __init__(self, listing, context):
         self.listing = listing
         self.context = context
@@ -376,7 +379,11 @@ class ResultsListingAdapter(object):
         if not is_installed():
             return item
         report = api.get_object(obj)
-        if get_xlsx(report):
+        xlsx = get_xlsx(report)
+        if xlsx:
+            item.setdefault("replace", {})["COA"] = get_link(
+                report.getSample().absolute_url(),
+                value=xlsx.filename.rsplit(u".", 1)[0])
             item.setdefault("replace", {})["XLSX"] = get_link(
                 report.absolute_url() + "/download_xlsx", value="XLSX")
         return item
