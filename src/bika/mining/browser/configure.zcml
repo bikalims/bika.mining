@@ -6,6 +6,10 @@
 
   <include package="senaite.core.permissions" />
   <include file="resultsxlsx.zcml" />
+  <browser:page for="senaite.core.interfaces.ISamplingDeviations"
+      name="view" class=".samplingmethods.SamplingMethodsView"
+      permission="senaite.core.permissions.ManageBika"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
   <subscriber for="senaite.core.browser.samples.view.SamplesView
                    zope.interface.Interface"
       provides="senaite.app.listing.interfaces.IListingViewAdapter"
