@@ -21,14 +21,6 @@ class IMatrixReferenceSchema(model.Schema):
         title=_(u"Matrix Ref"), required=True,
         description=_(u"Code or name identifying this recurring plant sample."),
     )
-    area = schema.TextLine(
-        title=_(u"Area"), required=False,
-        description=_(u"Plant area associated with this matrix reference."),
-    )
-    circuit_area = schema.TextLine(
-        title=_(u"Circuit / Area"), required=False,
-        description=_(u"Process circuit or specific sampling area within the plant."),
-    )
 
     # No client or path restriction: include setup and all clients' points.
     directives.widget(

@@ -63,8 +63,6 @@ class Matrix_References(WorksheetImporter):
             obj = api.create(
                 folder, "MatrixReference", title=title,
                 description=self.value(row, "Description"),
-                area=self.value(row, "Area"),
-                circuit_area=self.value(row, "Circuit / Area", "Circuit Area", "circuit_area"),
                 target_tat=target_tat,
             )
             for field, portal_type, names in (

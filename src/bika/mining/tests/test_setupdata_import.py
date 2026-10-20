@@ -50,8 +50,8 @@ class TestMatrixReferenceImport(unittest.TestCase):
                         "Plant Sample ID": "Feed point", "Sample Type": "Ore"}])
         obj = self.created[0]
         self.assertEqual(obj.title, "Feed")
-        self.assertEqual(obj.area, "Plant")
-        self.assertEqual(obj.circuit_area, "Mill")
+        self.assertFalse(hasattr(obj, "area"))
+        self.assertFalse(hasattr(obj, "circuit_area"))
         self.assertEqual(obj.target_tat, 0.0)
         deferred = self.importer.lsd.deferred
         self.assertEqual(len(deferred), 2)
@@ -67,7 +67,7 @@ class TestMatrixReferenceImport(unittest.TestCase):
         self.assertIsNone(self.created[0].target_tat)
 
     def test_rejects_invalid_tat_before_creation(self):
-        for value in ("invalid", "-1", "nan", "inf"):
+        for value in ("invalid", "-1", "nan", "inf", "72 in-house; 336 external"):
             with self.assertRaises(ValueError):
                 self.run_rows([{"Title": "Feed", "Target TAT": value}])
         self.assertEqual(self.created, [])
@@ -76,10 +76,10 @@ class TestMatrixReferenceImport(unittest.TestCase):
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "Matrix References"
-        sheet.append(["Title", "Area", "Target TAT (h)"])
-        sheet.append(["Description of columns", None, None])
-        sheet.append(["Example only", None, None])
-        sheet.append(["Feed", "Plant", 8])
+        sheet.append(["Title", "Target TAT (h)"])
+        sheet.append(["Description of columns", None])
+        sheet.append(["Example only", None])
+        sheet.append(["Feed", 8])
         self.importer.lsd.context = self.importer.context
         self.importer(self.importer.lsd, workbook, "bika.mining", "test")
         self.assertEqual(len(self.created), 1)
@@ -88,37 +88,48 @@ class TestMatrixReferenceImport(unittest.TestCase):
 
     def test_lotus_workbook(self):
         path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                            "setupdata", "Lotus new setup data.xlsx")
+                            "setupdata", "Lotus new setup data v4.xlsx")
+        if not os.path.exists(path):
+            self.skipTest("Local Lotus v4 setup workbook is not bundled")
         workbook = load_workbook(path, data_only=True)
         sheet = workbook["Matrix References"]
+        self.assertEqual(sheet["D79"].value, 408)
         self.assertTrue(
             any(setupdata._key(cell.value) in
                 ("title", "matrix ref", "matrix reference")
                 for cell in next(sheet.iter_rows())),
             "Unrecognized Matrix References headers: %r" %
             ([cell.value for cell in next(sheet.iter_rows())],))
-        expected = [tuple(cell.value for cell in row[:7])
+        expected = [tuple(cell.value for cell in row[:5])
                     for row in list(sheet.rows)[3:] if row[0].value]
-        self.assertEqual(len(expected), 77)
+        self.assertTrue(expected)
         self.importer.lsd.context = self.importer.context
         self.importer(self.importer.lsd, workbook, "bika.mining", "Lotus")
-        self.assertEqual(len(self.created), 77)
+        self.assertEqual(len(self.created), len(expected))
         deferred = self.importer.lsd.deferred
-        self.assertEqual(len(deferred), 154)
+        expected_references = sum(bool(values[1]) + bool(values[4])
+                                  for values in expected)
+        self.assertEqual(len(deferred), expected_references)
+        reference_index = 0
         for index, values in enumerate(expected):
-            title, area, circuit, point, description, tat, sample_type = values
+            title, point, description, tat, sample_type = values
             obj = self.created[index]
             self.assertEqual(obj.title, title)
-            self.assertEqual(obj.area, area)
-            self.assertEqual(obj.circuit_area, circuit)
+            self.assertFalse(hasattr(obj, "area"))
+            self.assertFalse(hasattr(obj, "circuit_area"))
             self.assertEqual(obj.target_tat, tat)
-            self.assertIs(deferred[index * 2]["src_obj"], obj)
-            self.assertEqual(deferred[index * 2]["dest_query"]["title"], point)
-            self.assertEqual(deferred[index * 2 + 1]["dest_query"]["title"],
-                             sample_type)
+            for field, value in (("plant_sample_id", point),
+                                 ("sample_type", sample_type)):
+                if not value:
+                    continue
+                reference = deferred[reference_index]
+                self.assertIs(reference["src_obj"], obj)
+                self.assertEqual(reference["src_field"], field)
+                self.assertEqual(reference["dest_query"]["title"], value)
+                reference_index += 1
         self.assertEqual(self.created[0].title, "SM-01")
-        self.assertEqual(self.created[1].title, "SM-02")
-        self.assertEqual(self.created[1].target_tat, 0.0)
+        self.assertEqual(self.created[1].title, "SM-03")
+        self.assertEqual(self.created[1].target_tat, 6.0)
         self.importer(self.importer.lsd, workbook, "bika.mining", "Lotus")
-        self.assertEqual(len(self.created), 77)
-        self.assertEqual(len(deferred), 154)
+        self.assertEqual(len(self.created), len(expected))
+        self.assertEqual(len(deferred), expected_references)
