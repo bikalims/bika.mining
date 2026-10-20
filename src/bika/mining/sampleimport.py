@@ -19,6 +19,7 @@ MINING_COLUMNS = (
     ('Shift', 'Shift'),
     ('Classification', 'Classification'),
     ('DrumBatch', 'Drum/Batch'),
+    ('SamplingDeviation', 'Sampling Method'),
     ('TargetTAT', 'Target TAT (h)'),
 )
 
@@ -75,6 +76,24 @@ def target_hours(row_nr, value):
 # Keep the importer implementation available for every other field and site.
 _munge_field_value = SampleImport.munge_field_value.im_func
 _validate_against_schema = SampleImport.validate_against_schema.im_func
+_get_sample_values = SampleImport.get_sample_values.im_func
+
+
+def get_sample_values(self):
+    data = _get_sample_values(self)
+    if not is_installed():
+        return data
+    aliases = {'Sampling Method': 'SamplingDeviation',
+               'SamplingMethod': 'SamplingDeviation'}
+    headers = [aliases.get(name, name) for name in data.get('headers', [])]
+    if headers.count('SamplingDeviation') > 1:
+        raise ValueError('Use only one Sampling Method column')
+    if 'headers' in data:
+        data['headers'] = headers
+    data['samples'] = [
+        [(aliases.get(name, name), value) for name, value in row]
+        for row in data['samples']]
+    return data
 
 
 def munge_field_value(self, schema, row_nr, fieldname, value):

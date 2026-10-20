@@ -29,6 +29,7 @@ class Brain(object):
 
 
 class MiningImporter(Importer):
+    get_sample_values = integration.get_sample_values
     munge_field_value = integration.munge_field_value
     validate_against_schema = integration.validate_against_schema
     validate_target_tat = staticmethod(integration.target_hours)
@@ -53,7 +54,8 @@ class TestMiningValues(unittest.TestCase):
         self.assertEqual(row['TargetTAT'], '0')
 
     def test_mining_references_accept_title_and_uid(self):
-        for name in ('MatrixReference', 'Shift', 'Classification', 'DrumBatch'):
+        for name in ('MatrixReference', 'Shift', 'Classification', 'DrumBatch',
+                     'SamplingDeviation'):
             field = Field()
             field.allowed_types = (name,)
             schema = {name: field}
@@ -94,7 +96,8 @@ class TestMiningValues(unittest.TestCase):
         record = type('Record', (object,), {})()
         row = dict(ClientSampleID='ID1', MatrixReference='matrix-uid',
                    Shift='shift-uid', Classification='class-uid',
-                   DrumBatch='drum-uid', TargetTAT='0.0')
+                   DrumBatch='drum-uid', SamplingDeviation='method-uid',
+                   TargetTAT='0.0')
         field.set(record, [row])
         saved = field.get(record)[0]
         for name, value in row.items():
@@ -126,7 +129,7 @@ class TestMiningValues(unittest.TestCase):
         rows = list(csv.reader(StringIO(data)))
         self.assertEqual(rows[1][1:3], ['Mining, Client', 'MC'])
         for name in ('MatrixReference', 'Shift', 'Classification',
-                     'DrumBatch', 'TargetTAT', 'Au', 'Fe'):
+                     'DrumBatch', 'Sampling Method', 'TargetTAT', 'Au', 'Fe'):
             self.assertIn(name, rows[3])
         self.assertNotIn('TATStatus', rows[3])
         self.assertEqual(len(rows[3]), len(rows[4]))
@@ -146,6 +149,27 @@ class TestMiningValues(unittest.TestCase):
         self.assertEqual(field.columns, columns)
         self.assertEqual(field.widget.columns, widgets)
         self.assertNotIn('TargetTAT', field.columns)
+
+    def test_sampling_method_headers_map_to_sample_field(self):
+        for header in ('Sampling Method', 'SamplingMethod', 'SamplingDeviation'):
+            self.importer.data = 'Samples,%s\nSample 1,Composite' % header
+            data = self.importer.get_sample_values()
+            self.assertIn('SamplingDeviation', data['headers'])
+            row = dict(data['samples'][0])
+            self.assertEqual(row['SamplingDeviation'], 'Composite')
+
+    def test_duplicate_sampling_method_headers_rejected(self):
+        self.importer.data = ('Samples,Sampling Method,SamplingDeviation\n'
+                              'Sample 1,Grab,Composite')
+        with self.assertRaises(ValueError):
+            self.importer.get_sample_values()
+
+    def test_sampling_method_header_without_mining_unchanged(self):
+        integration.is_installed = lambda: False
+        self.importer.data = 'Samples,Sampling Method\nSample 1,Grab'
+        data = self.importer.get_sample_values()
+        self.assertIn('Sampling Method', data['headers'])
+        self.assertEqual(dict(data['samples'][0])['Sampling Method'], 'Grab')
 
     def test_without_mining_layer_uses_upstream_behavior(self):
         integration.is_installed = lambda: False

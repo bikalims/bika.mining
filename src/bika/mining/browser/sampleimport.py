@@ -21,7 +21,9 @@ class SampleImportTemplateView(BrowserView):
                    self.context.getClientID(), ''])
         write_row([])
         columns = ['ClientSampleID', 'DateSampled', 'SamplePoint', 'SampleType',
-                   'SampleContainer'] + [name for name, label in MINING_COLUMNS]
+                   'SampleContainer'] + [
+                       label if name == 'SamplingDeviation' else name
+                       for name, label in MINING_COLUMNS]
         catalog = api.get_tool('senaite_catalog_setup')
         keywords = sorted(k for k in catalog.uniqueValuesFor('getKeyword')
                           if k and k not in columns)

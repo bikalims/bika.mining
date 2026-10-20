@@ -10,6 +10,11 @@
 
   <monkey:patch
       class="senaite.sampleimporter.content.sampleimport.SampleImport"
+      original="get_sample_values"
+      replacement=".sampleimport.get_sample_values"
+      ignoreOriginal="True" />
+  <monkey:patch
+      class="senaite.sampleimporter.content.sampleimport.SampleImport"
       original="munge_field_value"
       replacement=".sampleimport.munge_field_value"
       ignoreOriginal="True" />

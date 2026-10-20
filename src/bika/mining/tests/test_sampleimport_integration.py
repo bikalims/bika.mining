@@ -17,6 +17,7 @@ class TestSampleImportIntegration(unittest.TestCase):
         sampleimport = SampleImport('test-import').__of__(self.layer['portal'])
         field = sampleimport.Schema()['SampleData']
         self.assertIn('TargetTAT', field.columns)
+        self.assertIn('SamplingDeviation', field.columns)
         self.assertNotIn('TargetTAT', SampleData.columns)
 
     def test_registered_validation_wrapper_rejects_negative_hours(self):
