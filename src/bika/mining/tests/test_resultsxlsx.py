@@ -258,7 +258,10 @@ class TestResultsPublicationRegistration(unittest.TestCase):
                    'action': 'email', 'format': 'A4', 'orientation': 'portrait'}
         view.get_json = lambda: payload
         html = view.ajax_render_reports()
-        self.assertIn('NO data', html)
+        self.assertIn('An XLSX report of the results', html)
+        self.assertIn('name="coa_num"', html)
+        self.assertIn('COA', html)
+        self.assertNotIn('NO data', html)
         self.assertIn(api.get_uid(sample), html)
         payload['html'] = html
         preview = view.ajax_load_preview()

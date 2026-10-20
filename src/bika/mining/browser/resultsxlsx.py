@@ -92,12 +92,19 @@ class MiningAjaxPublishView(AjaxPublishView):
     def ajax_render_reports(self, *args):
         if self.get_json().get("template") == REPORT_TEMPLATE:
             groups = self.selected_groups(self.get_json())
-            body = self.read_template(self.get_report_template(REPORT_TEMPLATE), self)
             return u"\n".join(
                 u'<div class="report" uids="{}" client_uid="{}">{}</div>'.format(
-                    ",".join(api.get_uid(s) for s in samples), client_uid, body)
-                for client_uid, samples in groups.items())
+                    ",".join(api.get_uid(s) for s in samples), client_uid,
+                    self.read_template(
+                        self.get_report_template(REPORT_TEMPLATE), self,
+                        name=self.get_coa_number(samples[0], index)))
+                for index, (client_uid, samples) in enumerate(groups.items()))
         return self.legacy_view().ajax_render_reports(*args)
+
+    def get_coa_number(self, sample, offset=0):
+        from bika.coa.idserver import get_coa_number
+        setup_xlsx_format()
+        return get_coa_number(sample, offset=offset)
 
     def ajax_load_preview(self):
         if self.get_json().get("template") == REPORT_TEMPLATE:

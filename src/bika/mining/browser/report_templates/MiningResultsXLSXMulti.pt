@@ -1,5 +1,23 @@
-<div class="mining-results-xlsx">
-  <h1>Mining Results XLSX</h1>
-  <p>NO data</p>
-  <p>Results are supplied in the XLSX attachment.</p>
+<div class="mining-results-xlsx"
+     style="font-family: Arial, sans-serif; color: #243746; padding: 36px 24px;">
+  <div style="border-bottom: 3px solid #21856b; padding-bottom: 24px;">
+    <p style="color: #21856b; font-size: 11px; font-weight: bold; letter-spacing: 2px; margin: 0 0 12px;">
+      CERTIFICATE OF ANALYSIS
+    </p>
+    <h1 name="coa_num" tal:content="options/name"
+        style="font-size: 26px; line-height: 1.35; margin: 0; overflow-wrap: break-word;">
+      COA ID
+    </h1>
+  </div>
+  <div style="background: #f2f7f5; border-left: 4px solid #21856b; padding: 24px; margin-top: 32px;">
+    <p style="color: #21856b; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin: 0 0 16px;">
+      XLSX REPORT READY
+    </p>
+    <p style="font-size: 16px; line-height: 1.6; margin: 0 0 16px;">
+      An XLSX report of the results for the selected samples has been prepared.
+    </p>
+    <p style="font-size: 14px; line-height: 1.7; margin: 0;">
+      You may email it to the client recipients, or save it in the client's Analysis Reports folder.
+    </p>
+  </div>
 </div>
