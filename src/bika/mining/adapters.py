@@ -41,5 +41,8 @@ class SampleTemplateInfo(object):
             target = matrix.target_tat
         return {"field_values": {
             "MatrixReference": reference_value(matrix),
+            "SamplingDeviation": reference_value(
+                IMiningSampleTemplate["sampling_method"].get(
+                    IMiningSampleTemplate(self.context))),
             "TargetTAT": {"value": target},
         }}

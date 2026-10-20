@@ -19,6 +19,15 @@ def post_install(context):
     from bika.mining.idserver import setup_xlsx_format
     setup_xlsx_format()
     setup_sampling_methods()
+    setup_template_sampling_method()
+
+
+def setup_template_sampling_method(context=None):
+    """Use the mining template schema on existing installations."""
+    from bika.lims import api
+    types = api.get_tool("portal_types")
+    types["SampleTemplate"].schema = (
+        "bika.mining.extenders.sampletemplate.IMiningSampleTemplateSchema")
 
 
 def setup_sampling_methods(context=None):

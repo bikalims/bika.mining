@@ -5,13 +5,31 @@ from plone.autoform.interfaces import IFormFieldProvider
 from plone.supermodel import model
 from senaite.core.catalog import SETUP_CATALOG
 from senaite.core.schema import UIDReferenceField
+from senaite.core.content.sampletemplate import ISampleTemplateSchema
 from senaite.core.z3cform.widgets.uidreference import UIDReferenceWidgetFactory
 from zope import schema
 from zope.interface import implementer, provider
 
 
+class IMiningSampleTemplateSchema(ISampleTemplateSchema):
+    """Mining templates use Sampling Method instead of Composite."""
+
+    directives.omitted("composite")
+
+
 @provider(IFormFieldProvider)
 class IMiningSampleTemplate(model.Schema):
+    directives.widget(
+        "sampling_method", UIDReferenceWidgetFactory,
+        catalog=SETUP_CATALOG,
+        query={"is_active": True, "sort_on": "title"},
+    )
+    sampling_method = UIDReferenceField(
+        title=_(u"Sampling Method"), allowed_types=("SamplingDeviation",),
+        description=_(u"Default sampling method for samples using this template."),
+        multi_valued=False, relationship="SampleTemplateSamplingMethod",
+        required=False,
+    )
     directives.widget(
         "matrix_reference", UIDReferenceWidgetFactory,
         catalog=SETUP_CATALOG,
@@ -39,6 +57,14 @@ class MiningSampleTemplate(object):
 
     def __init__(self, context):
         self.context = context
+
+    @property
+    def sampling_method(self):
+        return getattr(self.context, "sampling_method", None)
+
+    @sampling_method.setter
+    def sampling_method(self, value):
+        self.context.sampling_method = value
 
     @property
     def matrix_reference(self):

@@ -9,7 +9,7 @@ class Record(object):
         self.__dict__.update(values)
         self.reindexed = False
 
-    def reindexObject(self):
+    def reindexObject(self, *args, **kwargs):
         self.reindexed = True
 
 
@@ -90,3 +90,62 @@ class TestTemplateDefaults(unittest.TestCase):
         self.assertFalse(self.type_field.calls)
         self.assertIsNone(self.template.target_tat)
         self.assertFalse(self.template.reindexed)
+
+
+class TestSamplingMethodDefaults(unittest.TestCase):
+    def setUp(self):
+        from bika.mining import adapters
+        self.adapters = adapters
+        self.method = Record(uid='method-uid', title=u'Composite')
+        self.template = Record(target_tat=None)
+        class Behavior(dict):
+            def __call__(self, context):
+                return context
+        self.behavior = Behavior(matrix_reference=Field(),
+                                 sampling_method=Field(self.method))
+        for module in (events, adapters):
+            original = module.IMiningSampleTemplate
+            module.IMiningSampleTemplate = self.behavior
+            self.addCleanup(setattr, module, 'IMiningSampleTemplate', original)
+        original = events.api.get_uid
+        events.api.get_uid = lambda obj: obj.uid
+        self.addCleanup(setattr, events.api, 'get_uid', original)
+        original = adapters.api.get_title
+        adapters.api.get_title = lambda obj: obj.title
+        self.addCleanup(setattr, adapters.api, 'get_title', original)
+        original = adapters.is_installed
+        adapters.is_installed = lambda: True
+        self.addCleanup(setattr, adapters, 'is_installed', original)
+        self.method_field = Field()
+        fields = {'MatrixReference': Field(), 'TargetTAT': Field(),
+                  'SamplingDeviation': self.method_field}
+        self.sample = Record(Schema=lambda: Record(getField=fields.get),
+                             getTemplate=lambda: self.template)
+
+    def test_created_sample_inherits_template_method_without_matrix(self):
+        events.initialize_sample(self.sample, None)
+        self.assertEqual(self.method_field.value, 'method-uid')
+
+    def test_explicit_sample_method_is_preserved(self):
+        self.method_field.value = 'explicit-method-uid'
+        events.initialize_sample(self.sample, None)
+        self.assertEqual(self.method_field.value, 'explicit-method-uid')
+        self.assertEqual(self.method_field.calls, [])
+
+    def test_template_without_method_leaves_sample_empty(self):
+        self.behavior['sampling_method'].value = None
+        events.initialize_sample(self.sample, None)
+        self.assertIsNone(self.method_field.value)
+        self.assertEqual(self.method_field.calls, [])
+
+    def test_sample_form_receives_template_method(self):
+        values = self.adapters.SampleTemplateInfo(
+            self.template).get_object_info_with_record({})['field_values']
+        self.assertEqual(values['SamplingDeviation'],
+                         {'value': u'Composite', 'uid': 'method-uid'})
+
+    def test_empty_template_clears_form_method(self):
+        self.behavior['sampling_method'].value = None
+        values = self.adapters.SampleTemplateInfo(
+            self.template).get_object_info_with_record({})['field_values']
+        self.assertEqual(values['SamplingDeviation'], {'value': '', 'uid': ''})

@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <object name="SampleTemplate" meta_type="Dexterity FTI">
+  <property name="schema">bika.mining.extenders.sampletemplate.IMiningSampleTemplateSchema</property>
   <property name="behaviors" purge="false">
     <element value="bika.mining.sampletemplate" />
   </property>

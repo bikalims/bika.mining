@@ -98,4 +98,9 @@
       source="1004" destination="1005" profile="bika.mining:default"
       handler=".setuphandlers.setup_sampling_methods" />
 
+  <genericsetup:upgradeStep title="Use Sampling Method on mining templates"
+      description="Replace the Composite option with a Sampling Method lookup"
+      source="1005" destination="1006" profile="bika.mining:default"
+      handler=".setuphandlers.setup_template_sampling_method" />
+
 </configure>

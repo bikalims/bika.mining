@@ -63,6 +63,12 @@ def initialize_sample(sample, event):
     matrix = matrix_field.get(sample)
     template = sample.getTemplate()
     if template is not None:
+        method_field = fields.getField("SamplingDeviation")
+        if method_field is not None and method_field.get(sample) is None:
+            method = IMiningSampleTemplate["sampling_method"].get(
+                IMiningSampleTemplate(template))
+            if method is not None:
+                method_field.set(sample, api.get_uid(method))
         if matrix is None:
             matrix = IMiningSampleTemplate["matrix_reference"].get(
                 IMiningSampleTemplate(template))
