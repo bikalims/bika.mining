@@ -8,6 +8,8 @@ from plone.app.testing import (
     PloneSandboxLayer,
 )
 from plone.testing import z2
+from zope.component import getGlobalSiteManager
+from zope.component.hooks import setSite
 
 import bika.mining
 
@@ -25,6 +27,10 @@ class BikaMiningLayer(PloneSandboxLayer):
         self.loadZCML(package=bika.mining)
 
     def setUpPloneSite(self, portal):
+        # The SENAITE base layer retains the registry from before this layer's
+        # add-on registrations. Make the mining profiles and adapters visible.
+        portal.getSiteManager().__bases__ = (getGlobalSiteManager(),)
+        setSite(portal)
         applyProfile(portal, 'bika.mining:default')
 
 

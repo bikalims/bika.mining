@@ -1,50 +1,72 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+name: Build and test bika.mining
 
-name: Plone package
+on: [push, pull_request, workflow_dispatch]
 
-on:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main]
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    build:
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                python-version: [3.7, 3.8, 3.9, 2.7]
+  build-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      PYENV_ROOT: ${{ runner.temp }}/pyenv
+      TZ: UTC
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions/cache@v2
-              with:
-                  path: |
-                    ~/.cache/pip
-                    ~/buildout-cache
-                    ~/extends
-                  key: ${{ runner.os }}-tox-${{ hashFiles('**/setup.py') }}-${{ hashFiles('**/requirements.txt') }}-${{ hashFiles('**/tox.ini') }}
-                  restore-keys: |
-                    ${{ runner.os }}-tox-
-            - name: Set up Python ${{ matrix.python-version }}
-              uses: actions/setup-python@v2
-              with:
-                  python-version: ${{ matrix.python-version }}
-            - name: Install system libraries
-              run: sudo apt-get install libxml2-dev libxslt1-dev libjpeg-dev
-            - name: setup buildout cache
-              run: |
-                  mkdir -p ~/buildout-cache/{eggs,downloads}
-                  mkdir ~/.buildout
-                  echo "[buildout]" > $HOME/.buildout/default.cfg
-                  echo "download-cache = $HOME/buildout-cache/downloads" >> $HOME/.buildout/default.cfg
-                  echo "eggs-directory = $HOME/buildout-cache/eggs" >> $HOME/.buildout/default.cfg
-            - name: Install dependencies
-              run: |
-                  python -m pip install --upgrade pip
-                  pip install tox tox-gh-actions
-            - name: Test with tox
-              run: |
-                  tox -r
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl git libssl-dev \
+            zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev libffi-dev \
+            liblzma-dev libncurses-dev libxml2-dev libxslt1-dev libjpeg-dev \
+            libcairo2-dev libpango1.0-dev libgdk-pixbuf-2.0-dev \
+            poppler-utils fonts-liberation
+
+      - name: Install pyenv
+        run: |
+          git clone --depth 1 https://github.com/pyenv/pyenv.git "$PYENV_ROOT"
+          echo "$PYENV_ROOT/bin" >> "$GITHUB_PATH"
+          echo "$PYENV_ROOT/shims" >> "$GITHUB_PATH"
+
+      - name: Cache Python 2.7
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PYENV_ROOT }}/versions/2.7.18
+          key: python-2.7.18-ubuntu22.04-${{ runner.arch }}-v1
+
+      - name: Set up Python 2.7
+        run: |
+          pyenv install --skip-existing 2.7.18
+          pyenv global 2.7.18
+          python --version
+          python -c 'import ssl, sqlite3, bz2, zlib'
+
+      - name: Cache build dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            eggs
+            downloads
+          key: ubuntu22.04-py27-buildout-${{ hashFiles('ci.cfg', 'ci-requirements.txt', 'setup.py') }}
+
+      - name: Install Python dependencies
+        run: python -m pip install -r ci-requirements.txt
+
+      - name: Build test runner
+        run: |
+          mkdir -p downloads
+          buildout -N -t 60 -c ci.cfg
+
+      - name: Lint
+        run: flake8 --config ci_flake8.cfg src/bika/mining setup.py
+
+      - name: Run unit and integration tests
+        run: bin/test -s bika.mining.tests --exit-with-status

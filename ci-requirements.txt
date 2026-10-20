@@ -1,0 +1,6 @@
+# Last supported packaging stack for the SENAITE Python 2.7 runtime.
+pip==20.3.4
+setuptools==44.1.1
+wheel==0.37.1
+zc.buildout==2.13.3
+flake8==3.9.2

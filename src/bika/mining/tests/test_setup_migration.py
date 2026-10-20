@@ -57,8 +57,8 @@ class TestMatrixReferenceMigration(unittest.TestCase):
         self.assertIs(self.new["matrixreferences"], folder)
         self.assertEqual(self.moves, [])
 
-    def test_post_install_places_all_mining_folders_in_new_setup(self):
-        setuphandlers.post_install(None)
+    def test_setup_places_all_mining_folders_in_new_setup(self):
+        setuphandlers.setup_mining_folders(None)
         self.assertEqual(set(self.new),
                          {"matrixreferences", "shifts", "classifications",
                           "drumbatches"})
