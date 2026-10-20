@@ -84,9 +84,8 @@ class AnalysisRequestSchemaExtender(object):
             read_permission=View, write_permission=FieldEditContact,
             widget=DecimalWidget(
                 label=_(u"Target TAT (h)"), render_own_label=True,
-                description=_(u"Target turnaround time in hours from laboratory "
-                              u"receipt to results publication. Leave blank to use "
-                              u"the sample template or matrix reference default."),
+                description=_(u"Target turnaround time in hours from sample "
+                              u"receipt to results publication"),
                 visible={"add": "edit", "header_table": "visible",
                          "secondary": "disabled", "verified": "view",
                          "published": "view"},
