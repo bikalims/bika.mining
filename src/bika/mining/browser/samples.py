@@ -31,7 +31,8 @@ class SamplesListingViewAdapter(object):
         sample = api.get_object(obj)
         for name, value in (("TargetTAT", target_hours(sample)),
                             ("TAT", actual_tat(sample))):
-            item[name] = "" if value is None else "{:g}".format(value)
+            item[name] = ("" if value is None else
+                          ("{:.2f}" if name == "TAT" else "{:g}").format(value))
         if target_hours(sample) is not None:
             icons = item.get("after", {}).get("getId", "")
             item.setdefault("after", {})["getId"] = icons.replace(

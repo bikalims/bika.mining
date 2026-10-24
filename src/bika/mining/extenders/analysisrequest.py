@@ -106,6 +106,7 @@ class AnalysisRequestSchemaExtender(object):
             read_permission=View,
             widget=DecimalWidget(
                 label=_(u"TAT (h)"), render_own_label=True,
+                dollars_and_cents=True,
                 description=_(u"Actual hours from laboratory receipt to publication."),
                 visible={"add": "invisible", "edit": "invisible",
                          "header_table": "visible"},
