@@ -2,25 +2,22 @@ name: Build and test bika.mining
 
 on: [push, pull_request, workflow_dispatch]
 
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build-and-test:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
-    env:
-      PYENV_ROOT: ${{ runner.temp }}/pyenv
-      TZ: UTC
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install system dependencies
+      - name: Cache pyenv Python builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.pyenv
+          key: pyenv-2.7.18-${{ runner.os }}
+          restore-keys: |
+            pyenv-2.7.18-
+
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential curl git libssl-dev \
@@ -31,42 +28,40 @@ jobs:
 
       - name: Install pyenv
         run: |
-          git clone --depth 1 https://github.com/pyenv/pyenv.git "$PYENV_ROOT"
-          echo "$PYENV_ROOT/bin" >> "$GITHUB_PATH"
-          echo "$PYENV_ROOT/shims" >> "$GITHUB_PATH"
+          if [ ! -d "$HOME/.pyenv" ]; then
+            curl https://pyenv.run | bash
+          fi
 
-      - name: Cache Python 2.7
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.PYENV_ROOT }}/versions/2.7.18
-          key: python-2.7.18-ubuntu22.04-${{ runner.arch }}-v1
-
-      - name: Set up Python 2.7
+      - name: Install Python 2.7 with pyenv
         run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
           pyenv install --skip-existing 2.7.18
           pyenv global 2.7.18
           python --version
-          python -c 'import ssl, sqlite3, bz2, zlib'
 
-      - name: Cache build dependencies
+      - name: Cache eggs
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/pip
-            eggs
-            downloads
-          key: ubuntu22.04-py27-buildout-${{ hashFiles('ci.cfg', 'ci-requirements.txt', 'setup.py') }}
+          key: eggs-cache-${{ hashFiles('ci.cfg', 'ci-requirements.txt', 'setup.py') }}
+          path: eggs/
 
-      - name: Install Python dependencies
-        run: python -m pip install -r ci-requirements.txt
-
-      - name: Build test runner
+      - name: Install dependencies and build test runner
         run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
+          python -m pip install -r ci-requirements.txt
           mkdir -p downloads
           buildout -N -t 60 -c ci.cfg
 
       - name: Lint
-        run: flake8 --config ci_flake8.cfg src/bika/mining setup.py
+        run: |
+          export PYENV_ROOT="$HOME/.pyenv"
+          export PATH="$PYENV_ROOT/bin:$PATH"
+          eval "$(pyenv init --path)"
+          flake8 --config ci_flake8.cfg src/bika/mining setup.py
 
-      - name: Run unit and integration tests
+      - name: Run tests
         run: bin/test -s bika.mining.tests --exit-with-status
