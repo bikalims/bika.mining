@@ -14,6 +14,10 @@
                    zope.interface.Interface"
       provides="senaite.app.listing.interfaces.IListingViewAdapter"
       factory=".samples.SamplesListingViewAdapter" />
+  <subscriber for="senaite.core.browser.controlpanel.sampletemplates.view.SampleTemplatesView
+                   zope.interface.Interface"
+      provides="senaite.app.listing.interfaces.IListingViewAdapter"
+      factory=".sampletemplates.SampleTemplatesListingViewAdapter" />
   <adapter name="Matrix_References"
       factory=".overrides.setupdata.Matrix_References"
       provides="bika.lims.interfaces.ISetupDataImporter"

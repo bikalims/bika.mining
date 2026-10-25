@@ -45,6 +45,31 @@ class TestTemplateSamplingMethod(unittest.TestCase):
         self.assertEqual(field.get(IMiningSampleTemplate(self.template)),
                          self.method)
 
+    def test_listing_columns_and_template_values(self):
+        from senaite.core.browser.controlpanel.sampletemplates.view import SampleTemplatesView
+        from senaite.app.listing.interfaces import IListingViewAdapter
+        from zope.component import subscribers
+        from bika.mining.browser.sampletemplates import SampleTemplatesListingViewAdapter
+        setup = api.get_senaite_setup()
+        view = SampleTemplatesView(setup.sampletemplates, self.layer['request'])
+        adapters = subscribers((view, setup.sampletemplates), IListingViewAdapter)
+        adapter = next(value for value in adapters
+                       if isinstance(value, SampleTemplatesListingViewAdapter))
+        adapter.before_render()
+        adapter.before_render()
+        names = ['SamplePoint', 'SampleType', 'SamplingMethod',
+                 'MatrixReference', 'TargetTAT']
+        for state in view.review_states:
+            for name in names:
+                self.assertEqual(state['columns'].count(name), 1)
+        item = adapter.folder_item(self.template, {}, 0)
+        self.assertEqual(item['SamplingMethod'], u'Composite')
+        for name in ('SamplePoint', 'SampleType', 'MatrixReference', 'TargetTAT'):
+            self.assertEqual(item[name], '')
+        self.template.target_tat = 0.0
+        item = adapter.folder_item(self.template, {}, 0)
+        self.assertEqual(item['TargetTAT'], '0')
+
     def test_registered_form_adapter_supplies_sampling_method(self):
         adapter = getAdapter(self.template, IAddSampleObjectInfo,
                              name='bika.mining.sampletemplate.info')
