@@ -44,6 +44,8 @@ class TestResultsXLSX(unittest.TestCase):
         for row in original.iter_rows(min_row=1, max_row=3):
             for cell in row:
                 expected = None if cell.coordinate in ('A1', 'C1', 'E1', 'G1') else cell.value
+                if cell.coordinate == 'DD3':
+                    expected = 'Cl final (ppm)'
                 self.assertEqual(sheet[cell.coordinate].value, expected)
                 self.assertEqual(sheet[cell.coordinate]._style, cell._style)
         self.assertEqual(list(sheet.merged_cells.ranges),
@@ -62,15 +64,16 @@ class TestResultsXLSX(unittest.TestCase):
         self.assertEqual(sheet.column_dimensions["P"].width,
                          original.column_dimensions["P"].width)
 
-    def test_chlorine_ppm_fills_both_fixed_sections_and_leaves_missing_blank(self):
+    def test_chlorine_and_final_chlorine_use_separate_columns(self):
         sheet = self.export([
-            {"metadata": {}, "results": {"Cl (ppm)": "12"}},
+            {"metadata": {}, "results": {"Cl (ppm)": "12",
+                                         "Cl final (ppm)": "15"}},
             {"metadata": {}, "results": {}},
         ])["Reporting"]
         self.assertEqual(sheet["CB3"].value, "Cl (ppm)")
-        self.assertEqual(sheet["DD3"].value, "Cl (ppm)")
+        self.assertEqual(sheet["DD3"].value, "Cl final (ppm)")
         self.assertEqual(sheet["CB4"].value, "12")
-        self.assertEqual(sheet["DD4"].value, "12")
+        self.assertEqual(sheet["DD4"].value, "15")
         self.assertIsNone(sheet["CB5"].value)
         self.assertIsNone(sheet["DD5"].value)
 

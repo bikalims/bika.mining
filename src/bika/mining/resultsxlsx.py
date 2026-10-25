@@ -98,6 +98,11 @@ def render_results(rows, template=TEMPLATE, report_header=None):
             values = cell.getElementsByTagName("v")
             if values and cell.getAttribute("t") == "s":
                 title = strings[int(text(values[0]))]
+                # The final chlorine result is a separate service from the
+                # earlier Cl result, despite the legacy template header.
+                if title == "Cl (ppm)" and title in columns:
+                    title = "Cl final (ppm)"
+                    set_value(doc, cell, title)
                 # A service can appear in more than one report section.
                 # Keep every fixed destination for its exact Title.
                 columns.setdefault(title, []).append(column(cell))
