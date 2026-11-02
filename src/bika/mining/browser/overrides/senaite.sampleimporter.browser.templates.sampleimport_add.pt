@@ -27,7 +27,8 @@
         Mining sample columns: <code>MatrixReference</code>,
         <code>Shift</code>, <code>Classification</code>,
         <code>DrumBatch</code> and <code>TargetTAT</code>.
-        Use existing lookup titles or UIDs. Target TAT is in hours;
+        Use existing lookup titles or UIDs for Matrix Reference, Shift and
+        Classification. Drum/Batch is free text. Target TAT is in hours;
         leave it blank to use the configured default. TAT Status is
         calculated when results are published.
     </p>

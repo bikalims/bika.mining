@@ -54,7 +54,7 @@ class TestMiningValues(unittest.TestCase):
         self.assertEqual(row['TargetTAT'], '0')
 
     def test_mining_references_accept_title_and_uid(self):
-        for name in ('MatrixReference', 'Shift', 'Classification', 'DrumBatch',
+        for name in ('MatrixReference', 'Shift', 'Classification',
                      'SamplingDeviation'):
             field = Field()
             field.allowed_types = (name,)
@@ -68,6 +68,26 @@ class TestMiningValues(unittest.TestCase):
             self.importer.lookup = lambda *args, **kw: []
             with self.assertRaises(ValueError):
                 self.importer.munge_field_value(schema, 2, name, 'Missing')
+
+    def test_drum_batch_is_free_text_through_import(self):
+        from bika.mining.extenders.analysisrequest import AnalysisRequestSchemaExtender
+        from Products.Archetypes.Widget import StringWidget
+        from Products.Archetypes.atapi import Schema
+        from Products.DataGridField import Column
+        schema = Schema(AnalysisRequestSchemaExtender(None).getFields())
+        self.assertEqual(schema['DrumBatch'].type, 'string')
+        self.assertIsInstance(schema['DrumBatch'].widget, StringWidget)
+        self.assertEqual(schema['DrumBatch'].widget.visible['add'], 'edit')
+        for value in ('Batch 12 / Drum A', '50%', ''):
+            munged = self.importer.munge_field_value(
+                schema, 1, 'DrumBatch', value)
+            self.assertEqual(munged, value)
+            self.assertEqual(self.importer.validate_against_schema(
+                schema, 1, 'DrumBatch', munged), value)
+        grid_schema = Schema((upstream.SampleData.copy(),))
+        integration.SampleImportSchemaModifier(None).fiddle(grid_schema)
+        column = grid_schema['SampleData'].widget.columns['DrumBatch']
+        self.assertIs(type(column), Column)
 
     def test_target_tat_is_numeric_including_zero(self):
         schema = {'TargetTAT': object()}
@@ -96,7 +116,7 @@ class TestMiningValues(unittest.TestCase):
         record = type('Record', (object,), {})()
         row = dict(ClientSampleID='ID1', MatrixReference='matrix-uid',
                    Shift='shift-uid', Classification='class-uid',
-                   DrumBatch='drum-uid', SamplingDeviation='method-uid',
+                   DrumBatch='Batch 12 / Drum A', SamplingDeviation='method-uid',
                    TargetTAT='0.0')
         field.set(record, [row])
         saved = field.get(record)[0]

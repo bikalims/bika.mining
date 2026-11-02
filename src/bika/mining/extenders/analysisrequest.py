@@ -76,8 +76,17 @@ class AnalysisRequestSchemaExtender(object):
                         u"Select the shift during which the sample was taken."),
         reference_field("Classification", "Classification", u"Classification",
                         u"Select the process classification, such as Heads or Tails."),
-        reference_field("DrumBatch", "DrumBatch", u"Drum/Batch",
-                        u"Select the drum or batch associated with this sample."),
+        ExtStringField(
+            "DrumBatch", required=False,
+            read_permission=View, write_permission=FieldEditContact,
+            widget=StringWidget(
+                label=_(u"Drum/Batch"), render_own_label=True,
+                description=_(u"Enter the drum or batch associated with this sample."),
+                visible={"add": "edit", "header_table": "visible",
+                         "secondary": "disabled", "verified": "view",
+                         "published": "view"},
+            ),
+        ),
         ExtFloatField(
             "TargetTAT", required=False, default=None,
             validators=(validate_target_tat,),

@@ -13,4 +13,4 @@ class ExtFloatField(ExtensionField, FloatField):
 
 
 class ExtStringField(ExtensionField, StringField):
-    """Annotation-backed publication status."""
+    """Annotation-backed text field."""

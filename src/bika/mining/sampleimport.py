@@ -55,7 +55,7 @@ class SampleImportSchemaModifier(object):
             if name not in columns:
                 columns.insert(position, name)
                 position += 1
-            if name == 'TargetTAT':
+            if name in ('DrumBatch', 'TargetTAT'):
                 column = Column(label)
             else:
                 column = SelectColumn(label, MiningVocabulary(name))
