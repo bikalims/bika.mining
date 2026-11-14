@@ -118,12 +118,15 @@ class TestSampleTAT(unittest.TestCase):
             listing = type("Listing", (), {})()
             listing.columns = {}
             listing.review_states = [{"columns": ["Title"]},
-                                     {"columns": ["Title"]}]
+                                     {"columns": ["getId", "SampleType"]}]
             adapter = samples.SamplesListingViewAdapter(listing, None)
             adapter.before_render()
             adapter.before_render()
-            for state in listing.review_states:
-                self.assertEqual(state["columns"], ["Title", "TargetTAT", "TAT"])
+            self.assertEqual(listing.review_states[0]["columns"],
+                             ["MatrixReference", "Title", "TargetTAT", "TAT"])
+            self.assertEqual(listing.review_states[1]["columns"],
+                             ["getId", "MatrixReference", "SampleType",
+                              "TargetTAT", "TAT"])
         finally:
             samples.is_installed = original
 

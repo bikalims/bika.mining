@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from bika.lims import api
+from bika.lims.utils import get_link_for
 from bika.mining import _
 from bika.mining.config import is_installed
 from bika.mining.tat import actual_tat, target_hours
@@ -18,6 +19,14 @@ class SamplesListingViewAdapter(object):
     def before_render(self):
         if not is_installed():
             return
+        self.listing.columns["MatrixReference"] = {
+            "title": _(u"Matrix Reference"), "toggle": True}
+        for state in self.listing.review_states:
+            columns = state["columns"]
+            if "MatrixReference" not in columns:
+                position = (columns.index("getId") + 1
+                            if "getId" in columns else 0)
+                columns.insert(position, "MatrixReference")
         for name, title in (("TargetTAT", u"Target TAT (h)"),
                             ("TAT", u"TAT (h)")):
             self.listing.columns[name] = {"title": _(title), "toggle": True}
@@ -29,6 +38,13 @@ class SamplesListingViewAdapter(object):
         if not is_installed():
             return item
         sample = api.get_object(obj)
+        field = sample.Schema().getField("MatrixReference")
+        matrix = field.get(sample) if field is not None else None
+        item["MatrixReference"] = (
+            api.get_title(matrix) if matrix is not None else u"")
+        if matrix is not None:
+            item.setdefault("replace", {})["MatrixReference"] = get_link_for(
+                matrix)
         for name, value in (("TargetTAT", target_hours(sample)),
                             ("TAT", actual_tat(sample))):
             item[name] = ("" if value is None else
