@@ -7,6 +7,14 @@
   <include package="senaite.core.permissions" />
   <include file="resultsxlsx.zcml" />
   <browser:page for="senaite.core.interfaces.IWorksheet"
+      name="print" class=".worksheetprint.MiningDexterityPrintView"
+      permission="senaite.core.permissions.ViewResults"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="bika.lims.interfaces.IWorksheet"
+      name="print" class=".worksheetprint.MiningPrintView"
+      permission="senaite.core.permissions.ViewResults"
+      layer="bika.mining.interfaces.IBikaMiningLayer" />
+  <browser:page for="senaite.core.interfaces.IWorksheet"
       name="add_analyses" class=".worksheet.MiningDexterityAddAnalysesView"
       permission="senaite.core.permissions.ViewResults"
       layer="bika.mining.interfaces.IBikaMiningLayer" />

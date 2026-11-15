@@ -17,6 +17,7 @@ class MatrixReferenceColumns(object):
         for name, column in self.columns.items():
             columns[name] = column
             if name == "getRequestID":
+                columns[name] = dict(column, title=_(u"Sample ID"))
                 columns["MatrixReference"] = {
                     "title": _(u"Matrix Reference"),
                     "sortable": True,
