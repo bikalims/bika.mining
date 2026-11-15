@@ -61,12 +61,16 @@ def report_header(report, samples):
                              if entry.get("action") == "publish"
                              and entry.get("review_state") == "published")
     latest = max(published, key=lambda entry: entry["time"]) if published else None
+    # Saved reports have no publication transition yet. Use their persisted
+    # creation details so later downloads retain the original date and user.
+    date = latest["time"] if latest else report.created()
+    actor = latest["actor"] if latest else report.Creator()
     return {
         "A": title(samples[0].getClient()),
-        "C": report.xlsx.filename,
-        "E": latest["time"].strftime("%Y-%m-%d %H:%M") if latest else u"",
-        "G": (api.get_user_fullname(latest["actor"]) or latest["actor"])
-             if latest else u"",
+        "C": report.getId(),
+        "E": date.strftime("%Y-%m-%d %H:%M"),
+        "G": api.get_user_fullname(actor) or actor,
+        "I": report.xlsx.filename,
     }
 
 

@@ -88,8 +88,12 @@ def render_results(rows, template=TEMPLATE, report_header=None):
         template_rows = data.getElementsByTagName("row")
         for row in template_rows:
             if row.getAttribute("r") == "1":
+                header_style = row.getElementsByTagName("c")[0].getAttribute("s")
                 for cell in row.getElementsByTagName("c"):
-                    if column(cell) in ("A", "C", "E", "G"):
+                    if column(cell) in ("A", "C", "E", "G", "I"):
+                        # Use the same blue italic, non-wrapping style for all
+                        # five fields; intervening cells allow text overflow.
+                        cell.setAttribute("s", header_style)
                         set_value(doc, cell, (report_header or {}).get(column(cell)))
         header = next(row for row in template_rows
                       if row.getAttribute("r") == "3")

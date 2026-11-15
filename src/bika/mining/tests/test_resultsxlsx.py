@@ -43,11 +43,12 @@ class TestResultsXLSX(unittest.TestCase):
         sheet = self.export([{"metadata": {}, "results": {}}])["Reporting"]
         for row in original.iter_rows(min_row=1, max_row=3):
             for cell in row:
-                expected = None if cell.coordinate in ('A1', 'C1', 'E1', 'G1') else cell.value
+                expected = None if cell.coordinate in ('A1', 'C1', 'E1', 'G1', 'I1') else cell.value
                 if cell.coordinate == 'DD3':
                     expected = 'Cl final (ppm)'
                 self.assertEqual(sheet[cell.coordinate].value, expected)
-                self.assertEqual(sheet[cell.coordinate]._style, cell._style)
+                expected_style = original['A1']._style if cell.coordinate == 'I1' else cell._style
+                self.assertEqual(sheet[cell.coordinate]._style, expected_style)
         self.assertEqual(list(sheet.merged_cells.ranges),
                          list(original.merged_cells.ranges))
         for row in sheet.iter_rows(min_row=4, max_row=4):
@@ -111,12 +112,15 @@ class TestResultsXLSX(unittest.TestCase):
                 self.assertEqual(cell.alignment.textRotation, 90)
 
     def test_report_header_and_empty_export(self):
-        header = {'A': 'Plant', 'C': 'COA26-0001 Plant.xlsx',
-                  'E': '2026-10-18 09:15', 'G': 'Publisher'}
+        header = {'A': 'Plant', 'C': 'COA26-0001',
+                  'E': '2026-10-18 09:15', 'G': 'Publisher',
+                  'I': 'COA26-0001 Plant.xlsx'}
         sheet = load_workbook(BytesIO(render_results(
             [], report_header=header)))['Reporting']
         for col, value in header.items():
             self.assertEqual(sheet[col + '1'].value, value)
+            self.assertFalse(sheet[col + '1'].alignment.wrap_text)
+            self.assertEqual(sheet[col + '1']._style, sheet['A1']._style)
         self.assertEqual(sheet.max_row, 3)
         self.assertEqual(sheet.auto_filter.ref, 'B3:DQ3')
 
@@ -284,9 +288,13 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         filename = reports[0].xlsx.filename
         saved_sheet = load_workbook(BytesIO(reports[0].xlsx.data))['Reporting']
         self.assertEqual(saved_sheet['A1'].value, 'Lotus test')
-        self.assertEqual(saved_sheet['C1'].value, filename)
-        self.assertIsNone(saved_sheet['E1'].value)
-        self.assertIsNone(saved_sheet['G1'].value)
+        self.assertEqual(saved_sheet['C1'].value, api.get_id(reports[0]))
+        self.assertEqual(saved_sheet['I1'].value, filename)
+        self.assertEqual(saved_sheet['E1'].value,
+                         reports[0].created().strftime('%Y-%m-%d %H:%M'))
+        self.assertEqual(saved_sheet['G1'].value,
+                         api.get_user_fullname(reports[0].Creator()) or
+                         reports[0].Creator())
         self.assertEqual(api.normalize_filename(filename[:-5]),
                          api.get_id(reports[0]))
         self.assertEqual(reports[0].getContainedSamples(), [sample])
@@ -300,6 +308,8 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         self.assertEqual(sheet['E1'].value,
                          sample.getDatePublished().strftime('%Y-%m-%d %H:%M'))
         self.assertTrue(sheet['G1'].value)
+        self.assertEqual(sheet['C1'].value, api.get_id(reports[0]))
+        self.assertEqual(sheet['I1'].value, filename)
         self.assertEqual(sheet['M4'].value, 8.0)
         self.assertAlmostEqual(sheet['N4'].value, 1.0, places=2)
         self.assertEqual(sheet['O4'].value, 'On Time')
@@ -352,6 +362,46 @@ class TestResultsPublicationRegistration(unittest.TestCase):
 
 
 class TestMiningReportSelection(unittest.TestCase):
+    def test_header_uses_saved_report_id(self):
+        from DateTime import DateTime
+        from bika.lims import api
+        from bika.mining.browser.resultsxlsx import report_header
+
+        class Report(object):
+            xlsx = type('Blob', (object,), {'filename': u'Attachment name.xlsx'})()
+
+            def getId(self):
+                return 'saved-results-report-id'
+
+            def created(self):
+                return DateTime('2026/11/15 21:49:00')
+
+            def Creator(self):
+                return 'saved-user'
+
+        class Sample(object):
+            def getClient(self):
+                return None
+
+        fullname = api.get_user_fullname
+        api.get_user_fullname = lambda actor: {
+            'saved-user': 'Saved User', 'publisher': 'Publishing User'}.get(actor)
+        try:
+            sample = Sample()
+            header = report_header(Report(), [sample])
+            self.assertEqual(header['E'], '2026-11-15 21:49')
+            self.assertEqual(header['G'], 'Saved User')
+            sample.workflow_history = {'sample_workflow': [{
+                'action': 'publish', 'review_state': 'published',
+                'time': DateTime('2026/11/16 09:00:00'), 'actor': 'publisher'}]}
+            published_header = report_header(Report(), [sample])
+            self.assertEqual(published_header['E'], '2026-11-16 09:00')
+            self.assertEqual(published_header['G'], 'Publishing User')
+        finally:
+            api.get_user_fullname = fullname
+        self.assertEqual(header['C'], 'saved-results-report-id')
+        self.assertEqual(header['I'], 'Attachment name.xlsx')
+
     def test_time_variable_uses_hours_and_minutes(self):
         from DateTime import DateTime
         from bika.mining.idserver import ReportTime
