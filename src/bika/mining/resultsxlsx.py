@@ -10,6 +10,9 @@ NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 TEMPLATE = os.path.join(os.path.dirname(__file__), "setupdata",
                         "Bika Lotus Results XLSX COA 03.xlsx")
+REPORT_FIELDS = (("A", u"Client"), ("C", u"COA ID"),
+                 ("E", u"Date Published"), ("G", u"Published by"),
+                 ("I", u"File name"))
 
 
 def text(node):
@@ -44,8 +47,8 @@ def set_value(doc, cell, value):
         cell.appendChild(node)
 
 
-def set_results_fonts(styles, row):
-    """Give body cells regular black Arial without changing header styles."""
+def set_results_fonts(styles, row, size=None):
+    """Normalize body fonts, or resize a row while retaining its font style."""
     fonts = styles.getElementsByTagName("fonts")[0]
     formats = styles.getElementsByTagName("cellXfs")[0]
     original_fonts = list(fonts.getElementsByTagName("font"))
@@ -58,11 +61,17 @@ def set_results_fonts(styles, row):
             font_id = int(style.getAttribute("fontId") or 0)
             if font_id not in font_map:
                 font = original_fonts[font_id].cloneNode(deep=True)
+                if size is None:
+                    replaced = ("b", "i", "name", "color", "scheme")
+                    properties = [("name", "val", "Arial"),
+                                  ("color", "rgb", "FF000000")]
+                else:
+                    replaced = ("sz",)
+                    properties = [("sz", "val", str(size))]
                 for child in list(font.childNodes):
-                    if child.nodeName in ("b", "i", "name", "color", "scheme"):
+                    if child.nodeName in replaced:
                         font.removeChild(child)
-                for tag, attribute, value in (("name", "val", "Arial"),
-                                               ("color", "rgb", "FF000000")):
+                for tag, attribute, value in properties:
                     node = styles.createElementNS(NS, tag)
                     node.setAttribute(attribute, value)
                     font.appendChild(node)
@@ -77,6 +86,23 @@ def set_results_fonts(styles, row):
     formats.setAttribute("count", str(len(formats.getElementsByTagName("xf"))))
 
 
+def set_report_header(doc, styles, row, heading_row, values):
+    cells = row.getElementsByTagName("c")
+    heading_style = heading_row.getElementsByTagName("c")[0].getAttribute("s")
+    for cell in cells:
+        set_value(doc, cell, None)
+    for cell in cells[:2 * len(REPORT_FIELDS)]:
+        cell.setAttribute("s", heading_style)
+    for index, (key, label) in enumerate(REPORT_FIELDS):
+        label_cell, value_cell = cells[2 * index:2 * index + 2]
+        set_value(doc, label_cell, label)
+        set_value(doc, value_cell, values.get(key))
+    set_results_fonts(styles, row, size=10)
+    # Allow Excel to fit wrapped client and publisher names in row 1.
+    row.removeAttribute("ht")
+    row.removeAttribute("customHeight")
+
+
 def render_results(rows, template=TEMPLATE, report_header=None):
     """Rows contain metadata A:O and results keyed by exact service Title."""
     output = BytesIO()
@@ -86,15 +112,12 @@ def render_results(rows, template=TEMPLATE, report_header=None):
         doc = minidom.parseString(source.read("xl/worksheets/sheet1.xml"))
         data = doc.getElementsByTagName("sheetData")[0]
         template_rows = data.getElementsByTagName("row")
-        for row in template_rows:
-            if row.getAttribute("r") == "1":
-                header_style = row.getElementsByTagName("c")[0].getAttribute("s")
-                for cell in row.getElementsByTagName("c"):
-                    if column(cell) in ("A", "C", "E", "G", "I"):
-                        # Use the same blue italic, non-wrapping style for all
-                        # five fields; intervening cells allow text overflow.
-                        cell.setAttribute("s", header_style)
-                        set_value(doc, cell, (report_header or {}).get(column(cell)))
+        styles = minidom.parseString(source.read("xl/styles.xml"))
+        report_row = next(row for row in template_rows
+                          if row.getAttribute("r") == "1")
+        heading_row = next(row for row in template_rows
+                           if row.getAttribute("r") == "2")
+        set_report_header(doc, styles, report_row, heading_row, report_header or {})
         header = next(row for row in template_rows
                       if row.getAttribute("r") == "3")
         columns = {}
@@ -114,7 +137,6 @@ def render_results(rows, template=TEMPLATE, report_header=None):
         style_row = next(row for row in template_rows
                          if row.getAttribute("r") == "4")
         prototype = style_row.cloneNode(deep=True)
-        styles = minidom.parseString(source.read("xl/styles.xml"))
         set_results_fonts(styles, prototype)
         for row in list(template_rows):
             if int(row.getAttribute("r")) >= 4:

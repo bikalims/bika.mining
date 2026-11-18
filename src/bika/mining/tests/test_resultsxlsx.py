@@ -41,14 +41,13 @@ class TestResultsXLSX(unittest.TestCase):
     def test_template_formatting_and_headers_preserved(self):
         original = load_workbook(TEMPLATE)["Reporting"]
         sheet = self.export([{"metadata": {}, "results": {}}])["Reporting"]
-        for row in original.iter_rows(min_row=1, max_row=3):
+        for row in original.iter_rows(min_row=2, max_row=3):
             for cell in row:
-                expected = None if cell.coordinate in ('A1', 'C1', 'E1', 'G1', 'I1') else cell.value
+                expected = cell.value
                 if cell.coordinate == 'DD3':
                     expected = 'Cl final (ppm)'
                 self.assertEqual(sheet[cell.coordinate].value, expected)
-                expected_style = original['A1']._style if cell.coordinate == 'I1' else cell._style
-                self.assertEqual(sheet[cell.coordinate]._style, expected_style)
+                self.assertEqual(sheet[cell.coordinate]._style, cell._style)
         self.assertEqual(list(sheet.merged_cells.ranges),
                          list(original.merged_cells.ranges))
         for row in sheet.iter_rows(min_row=4, max_row=4):
@@ -117,10 +116,21 @@ class TestResultsXLSX(unittest.TestCase):
                   'I': 'COA26-0001 Plant.xlsx'}
         sheet = load_workbook(BytesIO(render_results(
             [], report_header=header)))['Reporting']
-        for col, value in header.items():
-            self.assertEqual(sheet[col + '1'].value, value)
-            self.assertFalse(sheet[col + '1'].alignment.wrap_text)
-            self.assertEqual(sheet[col + '1']._style, sheet['A1']._style)
+        self.assertEqual([cell.value for cell in sheet[1][:10]], [
+            'Client', 'Plant', 'COA ID', 'COA26-0001',
+            'Date Published', '2026-10-18 09:15', 'Published by', 'Publisher',
+            'File name', 'COA26-0001 Plant.xlsx',
+        ])
+        heading = sheet['A2']
+        self.assertEqual(heading.font.sz, 9)
+        expected_font = copy(heading.font)
+        expected_font.sz = 10
+        for cell in sheet[1]:
+            self.assertEqual(cell.font.sz, 10)
+        for cell in sheet[1][:10]:
+            self.assertEqual(copy(cell.font), expected_font)
+            self.assertEqual(copy(cell.fill), copy(heading.fill))
+            self.assertEqual(copy(cell.alignment), copy(heading.alignment))
         self.assertEqual(sheet.max_row, 3)
         self.assertEqual(sheet.auto_filter.ref, 'B3:DQ3')
 
@@ -243,7 +253,10 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         disableCache(request)
         client = api.create(portal.clients, 'Client', title=u'Lotus test',
                             ClientID='LOTUS')
+        sample_type = api.create(setup.sampletypes, 'SampleType',
+                                 title=u'Ore', Prefix='ORE')
         sample = api.create(client, 'AnalysisRequest',
+                            SampleType=sample_type,
                             DateReceived=DateTime() - 1.0 / 24,
                             TargetTAT=8.0)
         sample.Schema().getField('TargetTAT').set(sample, 8.0)
@@ -259,9 +272,16 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         workflow[chain[0]].updateRoleMappingsFor(sample)
         sample.reindexObject()
         portal.uid_catalog.catalog_object(sample, sample._getURL())
+        second_sample = api.create(client, 'AnalysisRequest',
+                                   SampleType=sample_type)
+        workflow.setStatusOf(chain[0], second_sample, {'review_state': 'verified'})
+        workflow[chain[0]].updateRoleMappingsFor(second_sample)
+        second_sample.reindexObject()
+        portal.uid_catalog.catalog_object(second_sample, second_sample._getURL())
         request.method = 'POST'
         view = MiningAjaxPublishView(sample, request)
-        payload = {'template': REPORT_TEMPLATE, 'items': [api.get_uid(sample)],
+        payload = {'template': REPORT_TEMPLATE,
+                   'items': [api.get_uid(sample), api.get_uid(second_sample)],
                    'action': 'email', 'format': 'A4', 'orientation': 'portrait'}
         view.get_json = lambda: payload
         html = view.ajax_render_reports()
@@ -270,6 +290,7 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         self.assertIn('COA', html)
         self.assertNotIn('NO data', html)
         self.assertIn(api.get_uid(sample), html)
+        self.assertIn(api.get_uid(second_sample), html)
         payload['html'] = html
         preview = view.ajax_load_preview()
         self.assertIn('data:image/png', preview)
@@ -287,29 +308,31 @@ class TestResultsPublicationRegistration(unittest.TestCase):
             r'^COA\d{2}-\d{4} LOTUS \d{6} \d{2}:\d{2}\.xlsx$')
         filename = reports[0].xlsx.filename
         saved_sheet = load_workbook(BytesIO(reports[0].xlsx.data))['Reporting']
-        self.assertEqual(saved_sheet['A1'].value, 'Lotus test')
-        self.assertEqual(saved_sheet['C1'].value, api.get_id(reports[0]))
-        self.assertEqual(saved_sheet['I1'].value, filename)
-        self.assertEqual(saved_sheet['E1'].value,
+        self.assertEqual(saved_sheet['B1'].value, 'Lotus test')
+        self.assertEqual(saved_sheet['D1'].value, api.get_id(reports[0]))
+        self.assertEqual(saved_sheet['J1'].value, filename)
+        self.assertEqual(saved_sheet['F1'].value,
                          reports[0].created().strftime('%Y-%m-%d %H:%M'))
-        self.assertEqual(saved_sheet['G1'].value,
+        self.assertEqual(saved_sheet['H1'].value,
                          api.get_user_fullname(reports[0].Creator()) or
                          reports[0].Creator())
         self.assertEqual(api.normalize_filename(filename[:-5]),
                          api.get_id(reports[0]))
-        self.assertEqual(reports[0].getContainedSamples(), [sample])
+        self.assertEqual(reports[0].getContainedSamples(), [sample, second_sample])
+        self.assertEqual(saved_sheet['A5'].value, second_sample.getId())
         workflow.doActionFor(sample, 'publish')
         refresh_xlsx(reports[0])
         self.assertEqual(reports[0].xlsx.filename, filename)
         data = reports[0].xlsx.data
         sheet = load_workbook(BytesIO(data))['Reporting']
         self.assertEqual(sheet['A4'].value, sample.getId())
+        self.assertEqual(sheet['A5'].value, second_sample.getId())
         self.assertEqual(sheet['E4'].value, 'Composite')
-        self.assertEqual(sheet['E1'].value,
+        self.assertEqual(sheet['F1'].value,
                          sample.getDatePublished().strftime('%Y-%m-%d %H:%M'))
-        self.assertTrue(sheet['G1'].value)
-        self.assertEqual(sheet['C1'].value, api.get_id(reports[0]))
-        self.assertEqual(sheet['I1'].value, filename)
+        self.assertTrue(sheet['H1'].value)
+        self.assertEqual(sheet['D1'].value, api.get_id(reports[0]))
+        self.assertEqual(sheet['J1'].value, filename)
         self.assertEqual(sheet['M4'].value, 8.0)
         self.assertAlmostEqual(sheet['N4'].value, 1.0, places=2)
         self.assertEqual(sheet['O4'].value, 'On Time')
