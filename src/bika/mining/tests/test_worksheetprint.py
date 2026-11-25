@@ -5,6 +5,7 @@ from Acquisition import Implicit
 from OFS.Folder import Folder
 from Testing.makerequest import makerequest
 from bika.mining.browser.worksheetprint import MiningPrintTemplates
+from plone.app.layout.viewlets.interfaces import IToolbar
 from zope.component import provideAdapter
 from zope.component.testing import setUp, tearDown
 from zope.interface import Interface
@@ -78,11 +79,42 @@ class TestWorksheetPrint(unittest.TestCase):
     def tearDown(self):
         tearDown()
 
+    def test_print_layouts_use_the_toolbar_logo(self):
+        logo = 'https://example.test/portal/@@site-logo/lab.png'
+
+        class Toolbar(object):
+            def get_toolbar_logo(self):
+                return logo
+
+        provideAdapter(lambda context, request, view: Toolbar(),
+                       (Interface, Interface, Interface), IToolbar,
+                       name='plone.toolbar')
+        for layout in ('sample_by_row', 'sample_by_column'):
+            html = PrintHarness(Sample(), layout + '.pt').renderWSTemplate()
+            self.assertIn('src="{}"'.format(logo), html)
+
+    def test_default_toolbar_logo_uses_bika_ui_for_printing(self):
+        from senaite.core.browser.viewlets.toolbar import LOGO
+
+        class Toolbar(object):
+            def get_toolbar_logo(self):
+                return 'https://example.test/portal' + LOGO
+
+        provideAdapter(lambda context, request, view: Toolbar(),
+                       (Interface, Interface, Interface), IToolbar,
+                       name='plone.toolbar')
+        for layout in ('sample_by_row', 'sample_by_column'):
+            html = PrintHarness(Sample(), layout + '.pt').renderWSTemplate()
+            self.assertIn('src="https://example.test/portal/++plone++'
+                          'bika.ui.static/assets/images/bikalimslogo.jpg"', html)
+
     def test_render_callable_sample_without_rendering_the_sample(self):
         for layout in ('sample_by_row', 'sample_by_column'):
             for prefix in ('', 'Worksheet Print Templates:'):
                 view = PrintHarness(Sample(), prefix + layout + '.pt')
                 html = view.renderWSTemplate()
+                self.assertIn('src="++plone++bika.ui.static/assets/images/'
+                              'bikalimslogo.jpg"', html)
                 self.assertIn('MATRIX-17', html)
                 self.assertIn('SAMPLE-1', html)
                 self.assertIn('1.00', html)

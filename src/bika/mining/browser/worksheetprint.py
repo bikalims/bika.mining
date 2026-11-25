@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
+from plone.app.layout.viewlets.interfaces import IToolbar
 from bika.lims.browser.worksheet.views.printview import (
     PrintView as LegacyPrintView)
 from senaite.core.browser.worksheets.worksheet.printview import PrintView
+from senaite.core.browser.viewlets.toolbar import LOGO as SENAITE_LOGO
+from zope.component import queryMultiAdapter
+
+
+BIKA_LOGO = '/++plone++bika.ui.static/assets/images/bikalimslogo.jpg'
 
 
 class MiningPrintTemplates(object):
@@ -11,6 +17,16 @@ class MiningPrintTemplates(object):
     sample_by_row = ViewPageTemplateFile('templates/print/sample_by_row.pt')
     sample_by_column = ViewPageTemplateFile(
         'templates/print/sample_by_column.pt')
+
+    def site_logo_url(self):
+        toolbar = queryMultiAdapter(
+            (self.context, self.request, self), IToolbar, name='plone.toolbar')
+        logo = toolbar.get_toolbar_logo() if toolbar is not None else None
+        if not logo:
+            return BIKA_LOGO.lstrip('/')
+        if logo.endswith(SENAITE_LOGO):
+            return logo[:-len(SENAITE_LOGO)] + BIKA_LOGO
+        return logo
 
     def matrix_reference_title(self, ar):
         # TAL path expressions auto-call content objects. Retrieve the sample
