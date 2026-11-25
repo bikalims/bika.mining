@@ -27,7 +27,8 @@ class SamplesListingViewAdapter(object):
                 position = (columns.index("getId") + 1
                             if "getId" in columns else 0)
                 columns.insert(position, "MatrixReference")
-        for name, title in (("TargetTAT", u"Target TAT (h)"),
+        for name, title in (("TimeTransferred", u"Time Transferred"),
+                            ("TargetTAT", u"Target TAT (h)"),
                             ("TAT", u"TAT (h)")):
             self.listing.columns[name] = {"title": _(title), "toggle": True}
             for state in self.listing.review_states:
@@ -45,6 +46,9 @@ class SamplesListingViewAdapter(object):
         if matrix is not None:
             item.setdefault("replace", {})["MatrixReference"] = get_link_for(
                 matrix)
+        field = sample.Schema().getField("TimeTransferred")
+        transferred = field.get(sample) if field is not None else None
+        item["TimeTransferred"] = self.listing.str_date(transferred)
         for name, value in (("TargetTAT", target_hours(sample)),
                             ("TAT", actual_tat(sample))):
             item[name] = ("" if value is None else

@@ -2,6 +2,11 @@
 from archetypes.schemaextender.field import ExtensionField
 from Products.Archetypes.public import FloatField, StringField
 from bika.lims.browser.fields import UIDReferenceField
+from senaite.core.browser.fields.datetime import DateTimeField
+
+
+class ExtDateTimeField(ExtensionField, DateTimeField):
+    """Annotation-backed sample date and time."""
 
 
 class ExtUIDReferenceField(ExtensionField, UIDReferenceField):

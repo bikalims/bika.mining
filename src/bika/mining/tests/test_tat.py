@@ -123,10 +123,11 @@ class TestSampleTAT(unittest.TestCase):
             adapter.before_render()
             adapter.before_render()
             self.assertEqual(listing.review_states[0]["columns"],
-                             ["MatrixReference", "Title", "TargetTAT", "TAT"])
+                             ["MatrixReference", "Title", "TimeTransferred",
+                              "TargetTAT", "TAT"])
             self.assertEqual(listing.review_states[1]["columns"],
                              ["getId", "MatrixReference", "SampleType",
-                              "TargetTAT", "TAT"])
+                              "TimeTransferred", "TargetTAT", "TAT"])
         finally:
             samples.is_installed = original
 

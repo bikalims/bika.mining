@@ -3,8 +3,10 @@ from archetypes.schemaextender.interfaces import IBrowserLayerAwareExtender
 from archetypes.schemaextender.interfaces import ISchemaExtender
 from archetypes.schemaextender.interfaces import ISchemaModifier
 from bika.lims import FieldEditContact
+from bika.lims.browser.widgets import DateTimeWidget
 from bika.lims.interfaces import IAnalysisRequest
 from bika.mining import _
+from bika.mining.extenders.fields import ExtDateTimeField
 from bika.mining.extenders.fields import ExtFloatField, ExtStringField
 from bika.mining.extenders.fields import ExtUIDReferenceField
 from bika.mining.interfaces import IBikaMiningLayer
@@ -82,6 +84,18 @@ class AnalysisRequestSchemaExtender(object):
             widget=StringWidget(
                 label=_(u"Drum/Batch"), render_own_label=True,
                 description=_(u"Enter the drum or batch associated with this sample."),
+                visible={"add": "edit", "header_table": "visible",
+                         "secondary": "disabled", "verified": "view",
+                         "published": "view"},
+            ),
+        ),
+        ExtDateTimeField(
+            "TimeTransferred", required=False,
+            read_permission=View, write_permission=FieldEditContact,
+            widget=DateTimeWidget(
+                label=_(u"Time Transferred"), render_own_label=True,
+                description=_(u"Enter the date and time the sample was transferred."),
+                show_time=True,
                 visible={"add": "edit", "header_table": "visible",
                          "secondary": "disabled", "verified": "view",
                          "published": "view"},
