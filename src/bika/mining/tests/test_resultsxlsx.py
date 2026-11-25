@@ -250,6 +250,26 @@ class TestResultsPublicationRegistration(unittest.TestCase):
                 self.assertEqual(api.get_uid(obj), original[obj.Title()])
         self.assertEqual(len(folder.objectValues()), 4)
 
+    def test_drum_batch_exports_as_literal_text(self):
+        from bika.lims import api
+        from bika.mining.browser.resultsxlsx import sample_row
+        from plone.app.testing import setRoles, TEST_USER_ID
+
+        portal = self.layer['portal']
+        request = self.layer['request']
+        setRoles(portal, TEST_USER_ID, ['Manager'])
+        alsoProvides(request, IBikaMiningLayer)
+        client = api.create(portal.clients, 'Client', title=u'Drum test',
+                            ClientID='DRUM')
+        setup = api.get_senaite_setup()
+        sample_type = api.create(setup.sampletypes, 'SampleType',
+                                 title=u'Ore', Prefix='ORE')
+        sample = api.create(client, 'AnalysisRequest', SampleType=sample_type)
+        sample.Schema().getField('DrumBatch').set(sample, u'A 543')
+
+        sheet = load_workbook(BytesIO(render_results([sample_row(sample)])))['Reporting']
+        self.assertEqual(sheet['H4'].value, u'A 543')
+
     def test_publication_stores_xlsx_and_updates_sample_tat(self):
         from bika.lims import api
         from bika.mining.browser.resultsxlsx import MiningAjaxPublishView

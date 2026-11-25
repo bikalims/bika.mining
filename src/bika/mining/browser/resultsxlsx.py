@@ -195,7 +195,7 @@ def sample_row(sample):
         "C": title(point), "D": point.Description() if point else u"",
         "E": sample.getSamplingDeviationTitle(), "F": sample.getPriorityText(),
         "G": title(sample_field(sample, "Classification")),
-        "H": title(sample_field(sample, "DrumBatch")),
+        "H": sample_field(sample, "DrumBatch"),
         "I": title(sample_field(sample, "Shift")),
         "J": transferred.asdatetime().replace(tzinfo=None) if transferred else None,
         "K": received.strftime("%Y-%m-%d") if received else u"",
