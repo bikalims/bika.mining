@@ -3,6 +3,7 @@
 import os
 import re
 import zipfile
+from datetime import datetime
 from io import BytesIO
 from xml.dom import minidom
 
@@ -13,6 +14,7 @@ TEMPLATE = os.path.join(os.path.dirname(__file__), "setupdata",
 REPORT_FIELDS = (("A", u"Client"), ("C", u"COA ID"),
                  ("E", u"Date Published"), ("G", u"Published by"),
                  ("I", u"File name"))
+DATETIME_COLUMNS = ("J", "K")
 
 
 def text(node):
@@ -31,11 +33,17 @@ def set_value(doc, cell, value):
         cell.removeAttribute("t")
     if value is None or value == "":
         return
+    if isinstance(value, datetime):
+        # The workbook uses Excel's 1900 date system.
+        delta = value - datetime(1899, 12, 30)
+        value = delta.total_seconds() / 86400
+        if 0 < value < 61:
+            value -= 1
     # Keep formatted analytical results (including qualifiers and precision)
     # as literal text; strings beginning with '=' must never become formulas.
     if isinstance(value, (int, float)):
         node = doc.createElementNS(NS, "v")
-        node.appendChild(doc.createTextNode(str(value)))
+        node.appendChild(doc.createTextNode(repr(value)))
         cell.appendChild(node)
     else:
         cell.setAttribute("t", "inlineStr")
@@ -56,7 +64,9 @@ def set_results_fonts(styles, row, size=None):
     font_map, format_map = {}, {}
     for cell in row.getElementsByTagName("c"):
         style_id = int(cell.getAttribute("s") or 0)
-        if style_id not in format_map:
+        datetime_cell = size is None and column(cell) in DATETIME_COLUMNS
+        format_key = (style_id, datetime_cell)
+        if format_key not in format_map:
             style = original_formats[style_id].cloneNode(deep=True)
             font_id = int(style.getAttribute("fontId") or 0)
             if font_id not in font_map:
@@ -79,9 +89,12 @@ def set_results_fonts(styles, row, size=None):
                 fonts.appendChild(font)
             style.setAttribute("fontId", str(font_map[font_id]))
             style.setAttribute("applyFont", "1")
-            format_map[style_id] = len(formats.getElementsByTagName("xf"))
+            if datetime_cell:
+                style.setAttribute("numFmtId", "22")
+                style.setAttribute("applyNumberFormat", "1")
+            format_map[format_key] = len(formats.getElementsByTagName("xf"))
             formats.appendChild(style)
-        cell.setAttribute("s", str(format_map[style_id]))
+        cell.setAttribute("s", str(format_map[format_key]))
     fonts.setAttribute("count", str(len(fonts.getElementsByTagName("font"))))
     formats.setAttribute("count", str(len(formats.getElementsByTagName("xf"))))
 
@@ -117,6 +130,24 @@ def render_results(rows, template=TEMPLATE, report_header=None):
                           if row.getAttribute("r") == "1")
         heading_row = next(row for row in template_rows
                            if row.getAttribute("r") == "2")
+        sample_headings = {
+            "A2": u"LIMS sample ID", "C2": u"Plant sample ID",
+            "J2": u"Time Transferred", "K2": u"Date and Time Received",
+        }
+        for cell in heading_row.getElementsByTagName("c"):
+            label = sample_headings.get(cell.getAttribute("r"))
+            if label is not None:
+                set_value(doc, cell, label)
+        for definition in doc.getElementsByTagName("col"):
+            if definition.getAttribute("max") == "10":
+                if definition.getAttribute("min") == "9":
+                    shift = definition.cloneNode(deep=True)
+                    shift.setAttribute("max", "9")
+                    definition.parentNode.insertBefore(shift, definition)
+                    definition.setAttribute("min", "10")
+                definition.setAttribute("width", "22")
+            elif definition.getAttribute("min") == "11":
+                definition.setAttribute("width", "22")
         set_report_header(doc, styles, report_row, heading_row, report_header or {})
         header = next(row for row in template_rows
                       if row.getAttribute("r") == "3")

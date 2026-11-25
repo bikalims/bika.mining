@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest
 import zipfile
+from datetime import datetime
 from io import BytesIO
 from copy import copy
 from openpyxl import load_workbook
@@ -41,11 +42,16 @@ class TestResultsXLSX(unittest.TestCase):
     def test_template_formatting_and_headers_preserved(self):
         original = load_workbook(TEMPLATE)["Reporting"]
         sheet = self.export([{"metadata": {}, "results": {}}])["Reporting"]
+        updated_headings = {
+            'A2': 'LIMS sample ID',
+            'C2': 'Plant sample ID',
+            'J2': 'Time Transferred',
+            'K2': 'Date and Time Received',
+            'DD3': 'Cl final (ppm)',
+        }
         for row in original.iter_rows(min_row=2, max_row=3):
             for cell in row:
-                expected = cell.value
-                if cell.coordinate == 'DD3':
-                    expected = 'Cl final (ppm)'
+                expected = updated_headings.get(cell.coordinate, cell.value)
                 self.assertEqual(sheet[cell.coordinate].value, expected)
                 self.assertEqual(sheet[cell.coordinate]._style, cell._style)
         self.assertEqual(list(sheet.merged_cells.ranges),
@@ -60,9 +66,23 @@ class TestResultsXLSX(unittest.TestCase):
                 self.assertEqual(copy(cell.alignment), copy(source_cell.alignment))
                 self.assertEqual(copy(cell.fill), copy(source_cell.fill))
                 self.assertEqual(copy(cell.border), copy(source_cell.border))
-                self.assertEqual(cell.number_format, source_cell.number_format)
+                if cell.column_letter in ('J', 'K'):
+                    self.assertEqual(cell.number_format, 'm/d/yy h:mm')
+                else:
+                    self.assertEqual(cell.number_format, source_cell.number_format)
         self.assertEqual(sheet.column_dimensions["P"].width,
                          original.column_dimensions["P"].width)
+
+    def test_transfer_and_receipt_are_excel_datetimes(self):
+        transferred = datetime(2026, 11, 25, 8, 15)
+        received = datetime(2026, 11, 25, 9, 30)
+        sheet = self.export([
+            {"metadata": {"J": transferred, "K": received}, "results": {}},
+            {"metadata": {"K": received}, "results": {}},
+        ])["Reporting"]
+        self.assertEqual(sheet["J4"].value, transferred)
+        self.assertEqual(sheet["K4"].value, received)
+        self.assertIsNone(sheet["J5"].value)
 
     def test_chlorine_and_final_chlorine_use_separate_columns(self):
         sheet = self.export([
@@ -104,7 +124,6 @@ class TestResultsXLSX(unittest.TestCase):
         for col, name in destinations.items():
             self.assertEqual(sheet[col + '3'].value, name)
             self.assertEqual(sheet[col + '4'].value, results[name])
-        self.assertEqual(sheet['A2'].value, 'LIMS Sample ID')
         self.assertEqual(sheet['AT2'].value, 'Field / water')
         for row in sheet.iter_rows(min_row=3, max_row=3, min_col=16, max_col=121):
             for cell in row:

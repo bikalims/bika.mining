@@ -186,6 +186,7 @@ def sample_field(sample, name):
 
 def sample_row(sample):
     received = sample.getDateReceived()
+    transferred = sample_field(sample, "TimeTransferred")
     point = sample.getSamplePoint()
     analysts = [api.get_user_fullname(user) for user in sample.getAnalysts()
                 if user]
@@ -196,8 +197,8 @@ def sample_row(sample):
         "G": title(sample_field(sample, "Classification")),
         "H": title(sample_field(sample, "DrumBatch")),
         "I": title(sample_field(sample, "Shift")),
-        "J": received.strftime("%Y-%m-%d") if received else u"",
-        "K": received.strftime("%H:%M") if received else u"",
+        "J": transferred.asdatetime().replace(tzinfo=None) if transferred else None,
+        "K": received.asdatetime().replace(tzinfo=None) if received else None,
         "L": u", ".join(analysts), "M": target_hours(sample),
         "N": actual_tat(sample), "O": sample_field(sample, "TATStatus"),
     }
