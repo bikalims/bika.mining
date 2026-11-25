@@ -22,22 +22,22 @@ class TestResultsXLSX(unittest.TestCase):
 
     def test_fixed_columns_blank_cells_and_zero(self):
         workbook = self.export([
-            {"metadata": {"A": "Sample-1", "M": 0},
+            {"metadata": {"A": "Sample-1", "N": 0},
              "results": {"Moisture (%)": "0", "NH4 (ug/gU)": "<0.1"}},
             {"metadata": {"A": "Sample-2"},
              "results": {"U3O8 solids (ppm)": "12.30"}},
         ])
         sheet = workbook["Reporting"]
-        self.assertEqual(sheet["Y4"].value, "0")
-        self.assertEqual(sheet["DQ4"].value, "<0.1")
-        self.assertEqual(sheet["P5"].value, "12.30")
-        self.assertIsNone(sheet["P4"].value)
-        self.assertIsNone(sheet["Y5"].value)
+        self.assertEqual(sheet["Z4"].value, "0")
+        self.assertEqual(sheet["DV4"].value, "<0.1")
+        self.assertEqual(sheet["Q5"].value, "12.30")
+        self.assertIsNone(sheet["Q4"].value)
+        self.assertIsNone(sheet["Z5"].value)
         self.assertIsNone(sheet["B4"].value)
-        self.assertEqual(sheet["M4"].value, 0)
+        self.assertEqual(sheet["N4"].value, 0)
         self.assertEqual(sheet.max_row, 5)
-        self.assertEqual(sheet.max_column, 121)
-        self.assertEqual(sheet.auto_filter.ref, "B3:DQ5")
+        self.assertEqual(sheet.max_column, 126)
+        self.assertEqual(sheet.auto_filter.ref, "B3:DV5")
 
     def test_template_formatting_and_headers_preserved(self):
         original = load_workbook(TEMPLATE)["Reporting"]
@@ -45,9 +45,7 @@ class TestResultsXLSX(unittest.TestCase):
         updated_headings = {
             'A2': 'LIMS sample ID',
             'C2': 'Plant sample ID',
-            'J2': 'Time Transferred',
-            'K2': 'Date and Time Received',
-            'DD3': 'Cl final (ppm)',
+            'DH3': 'Cl final (ppm)',
         }
         for row in original.iter_rows(min_row=2, max_row=3):
             for cell in row:
@@ -66,22 +64,26 @@ class TestResultsXLSX(unittest.TestCase):
                 self.assertEqual(copy(cell.alignment), copy(source_cell.alignment))
                 self.assertEqual(copy(cell.fill), copy(source_cell.fill))
                 self.assertEqual(copy(cell.border), copy(source_cell.border))
-                if cell.column_letter in ('J', 'K'):
+                if cell.column_letter == 'J':
                     self.assertEqual(cell.number_format, 'm/d/yy h:mm')
                 else:
                     self.assertEqual(cell.number_format, source_cell.number_format)
         self.assertEqual(sheet.column_dimensions["P"].width,
                          original.column_dimensions["P"].width)
+        for definition in sheet.column_dimensions.values():
+            self.assertFalse(definition.hidden)
+            self.assertFalse(definition.collapsed)
 
-    def test_transfer_and_receipt_are_excel_datetimes(self):
+    def test_transfer_datetime_and_separate_receipt_columns(self):
         transferred = datetime(2026, 11, 25, 8, 15)
-        received = datetime(2026, 11, 25, 9, 30)
         sheet = self.export([
-            {"metadata": {"J": transferred, "K": received}, "results": {}},
-            {"metadata": {"K": received}, "results": {}},
+            {"metadata": {"J": transferred, "K": "2026-11-25", "L": "09:30"},
+             "results": {}},
+            {"metadata": {}, "results": {}},
         ])["Reporting"]
         self.assertEqual(sheet["J4"].value, transferred)
-        self.assertEqual(sheet["K4"].value, received)
+        self.assertEqual(sheet["K4"].value, "2026-11-25")
+        self.assertEqual(sheet["L4"].value, "09:30")
         self.assertIsNone(sheet["J5"].value)
 
     def test_chlorine_and_final_chlorine_use_separate_columns(self):
@@ -90,33 +92,34 @@ class TestResultsXLSX(unittest.TestCase):
                                          "Cl final (ppm)": "15"}},
             {"metadata": {}, "results": {}},
         ])["Reporting"]
-        self.assertEqual(sheet["CB3"].value, "Cl (ppm)")
-        self.assertEqual(sheet["DD3"].value, "Cl final (ppm)")
-        self.assertEqual(sheet["CB4"].value, "12")
-        self.assertEqual(sheet["DD4"].value, "15")
-        self.assertIsNone(sheet["CB5"].value)
-        self.assertIsNone(sheet["DD5"].value)
+        self.assertEqual(sheet["CC3"].value, "Cl (ppm)")
+        self.assertEqual(sheet["DH3"].value, "Cl final (ppm)")
+        self.assertEqual(sheet["CC4"].value, "12")
+        self.assertEqual(sheet["DH4"].value, "15")
+        self.assertIsNone(sheet["CC5"].value)
+        self.assertIsNone(sheet["DH5"].value)
 
     def test_more_samples_than_example_rows(self):
         rows = [{"metadata": {"A": "Sample-{}".format(i)},
                  "results": {"NH4 (ug/gU)": str(i)}} for i in range(12)]
         sheet = self.export(rows)["Reporting"]
         self.assertEqual(sheet["A15"].value, "Sample-11")
-        self.assertEqual(sheet["DQ15"].value, "11")
+        self.assertEqual(sheet["DV15"].value, "11")
 
-    def test_v3_services_and_layout(self):
+    def test_mockup_services_and_layout(self):
         destinations = {
-            'AE': 'Granulometry (% passing 6 mm)', 'AF': 'Slurry SG (t/m3)',
-            'AH': 'Solids (% w/w)', 'AI': 'Resin concentration (% v/v)',
-            'AJ': 'Resin carry-over (g/L)', 'AK': 'Wet mass of cut (kg)',
-            'AL': 'Dry mass of cut (kg)', 'AM': 'Mass recovered (kg)',
-            'AN': 'Mass produced (t)', 'AO': 'Volume (m3)',
-            'AT': 'pH', 'AU': 'ORP (mV)', 'AX': 'Dissolved oxygen (ppb)',
-            'CN': 'Cycles of concentration (ratio)',
-            'CO': 'Corrosion inhibitor residual (ppm)',
-            'CQ': 'Resin working capacity (g U/L)',
-            'CR': 'Bead size distribution (%)', 'CS': 'Whole-bead count (%)',
-            'DF': 'CO3 (ug/gU)',
+            'AF': 'Granulometry (% passing 6 mm)', 'AG': 'Slurry SG (t/m3)',
+            'AI': 'Solids (% w/w)', 'AJ': 'Resin concentration (% v/v)',
+            'AK': 'Resin carry-over (g/L)', 'AL': 'Wet mass of cut (kg)',
+            'AM': 'Dry mass of cut (kg)', 'AN': 'Mass recovered (kg)',
+            'AO': 'Mass produced (t)', 'AP': 'Volume (m3)',
+            'AU': 'pH', 'AV': 'ORP (mV)', 'AY': 'Dissolved oxygen (ppb)',
+            'CO': 'Cycles of concentration (ratio)',
+            'CP': 'Corrosion inhibitor residual (ppm)',
+            'CR': 'Resin working capacity (g U/L)',
+            'CS': 'Bead size distribution (%)', 'CT': 'Whole-bead count (%)',
+            'CW': 'U3O8 solids titration (%)', 'CX': 'Moisture final (%)',
+            'DF': 'S (%)', 'DJ': 'CO3 (ug/gU)', 'DM': 'V (%)',
         }
         results = dict((name, str(index)) for index, name in
                        enumerate(sorted(destinations.values())))
@@ -124,8 +127,9 @@ class TestResultsXLSX(unittest.TestCase):
         for col, name in destinations.items():
             self.assertEqual(sheet[col + '3'].value, name)
             self.assertEqual(sheet[col + '4'].value, results[name])
-        self.assertEqual(sheet['AT2'].value, 'Field / water')
-        for row in sheet.iter_rows(min_row=3, max_row=3, min_col=16, max_col=121):
+        self.assertEqual(sheet['AU2'].value, 'Field / water')
+        self.assertEqual(sheet['CW2'].value, 'Final product impurities')
+        for row in sheet.iter_rows(min_row=3, max_row=3, min_col=17, max_col=126):
             for cell in row:
                 self.assertEqual(cell.alignment.textRotation, 90)
 
@@ -151,7 +155,7 @@ class TestResultsXLSX(unittest.TestCase):
             self.assertEqual(copy(cell.fill), copy(heading.fill))
             self.assertEqual(copy(cell.alignment), copy(heading.alignment))
         self.assertEqual(sheet.max_row, 3)
-        self.assertEqual(sheet.auto_filter.ref, 'B3:DQ3')
+        self.assertEqual(sheet.auto_filter.ref, 'B3:DV3')
 
     def test_unknown_service_title_is_rejected(self):
         with self.assertRaises(ValueError):
@@ -160,7 +164,7 @@ class TestResultsXLSX(unittest.TestCase):
     def test_results_are_literal_text(self):
         sheet = self.export([{"metadata": {},
                               "results": {"Moisture (%)": "=1+1"}}])["Reporting"]
-        self.assertEqual(sheet["Y4"].data_type, "s")
+        self.assertEqual(sheet["Z4"].data_type, "s")
 
     def test_other_workbook_parts_are_unchanged(self):
         data = render_results([{"metadata": {}, "results": {}}])
@@ -352,10 +356,10 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         self.assertTrue(sheet['H1'].value)
         self.assertEqual(sheet['D1'].value, api.get_id(reports[0]))
         self.assertEqual(sheet['J1'].value, filename)
-        self.assertEqual(sheet['M4'].value, 8.0)
-        self.assertAlmostEqual(sheet['N4'].value, 1.0, places=2)
-        self.assertEqual(sheet['O4'].value, 'On Time')
-        self.assertIsNone(sheet['P4'].value)
+        self.assertEqual(sheet['N4'].value, 8.0)
+        self.assertAlmostEqual(sheet['O4'].value, 1.0, places=2)
+        self.assertEqual(sheet['P4'].value, 'On Time')
+        self.assertIsNone(sheet['Q4'].value)
         from bika.mining.browser.resultsxlsx import XLSXDownloadView
         downloaded = []
         request.response.write = downloaded.append

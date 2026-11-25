@@ -10,11 +10,10 @@ from xml.dom import minidom
 NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 TEMPLATE = os.path.join(os.path.dirname(__file__), "setupdata",
-                        "Bika Lotus Results XLSX COA 03.xlsx")
+                        "Bika Lotus Results XLSX COA 05.xlsx")
 REPORT_FIELDS = (("A", u"Client"), ("C", u"COA ID"),
                  ("E", u"Date Published"), ("G", u"Published by"),
                  ("I", u"File name"))
-DATETIME_COLUMNS = ("J", "K")
 
 
 def text(node):
@@ -64,7 +63,7 @@ def set_results_fonts(styles, row, size=None):
     font_map, format_map = {}, {}
     for cell in row.getElementsByTagName("c"):
         style_id = int(cell.getAttribute("s") or 0)
-        datetime_cell = size is None and column(cell) in DATETIME_COLUMNS
+        datetime_cell = size is None and column(cell) == "J"
         format_key = (style_id, datetime_cell)
         if format_key not in format_map:
             style = original_formats[style_id].cloneNode(deep=True)
@@ -117,7 +116,7 @@ def set_report_header(doc, styles, row, heading_row, values):
 
 
 def render_results(rows, template=TEMPLATE, report_header=None):
-    """Rows contain metadata A:O and results keyed by exact service Title."""
+    """Rows contain metadata A:P and results keyed by exact service Title."""
     output = BytesIO()
     with zipfile.ZipFile(template) as source:
         strings_doc = minidom.parseString(source.read("xl/sharedStrings.xml"))
@@ -130,23 +129,17 @@ def render_results(rows, template=TEMPLATE, report_header=None):
                           if row.getAttribute("r") == "1")
         heading_row = next(row for row in template_rows
                            if row.getAttribute("r") == "2")
-        sample_headings = {
-            "A2": u"LIMS sample ID", "C2": u"Plant sample ID",
-            "J2": u"Time Transferred", "K2": u"Date and Time Received",
-        }
+        sample_headings = {"A2": u"LIMS sample ID", "C2": u"Plant sample ID"}
         for cell in heading_row.getElementsByTagName("c"):
             label = sample_headings.get(cell.getAttribute("r"))
             if label is not None:
                 set_value(doc, cell, label)
         for definition in doc.getElementsByTagName("col"):
-            if definition.getAttribute("max") == "10":
-                if definition.getAttribute("min") == "9":
-                    shift = definition.cloneNode(deep=True)
-                    shift.setAttribute("max", "9")
-                    definition.parentNode.insertBefore(shift, definition)
-                    definition.setAttribute("min", "10")
-                definition.setAttribute("width", "22")
-            elif definition.getAttribute("min") == "11":
+            # Keep the mockup's outline groups expanded in reports.
+            for attribute in ("hidden", "collapsed"):
+                if definition.hasAttribute(attribute):
+                    definition.removeAttribute(attribute)
+            if definition.getAttribute("min") == "10":
                 definition.setAttribute("width", "22")
         set_report_header(doc, styles, report_row, heading_row, report_header or {})
         header = next(row for row in template_rows

@@ -25,11 +25,11 @@ The filename is assigned when the report is saved and retained when its results
 are refreshed. Email attachments, direct downloads, and files inside bulk ZIP
 downloads use this saved name. Previously saved reports retain their filenames.
 
-The export uses `setupdata/Bika Lotus Results XLSX COA 03.xlsx` (v3), preserving
-its category bands, rotated result headings, and fixed columns through DQ.
-CO3 remains in Final product impurities, as in that workbook. Row 1 contains
-the client name (A1), saved XLSX filename (C1), latest sample publication time
-(E1), and publisher (G1). Publication details remain blank until publication.
+The export uses `setupdata/Bika Lotus Results XLSX COA 05.xlsx`, with category
+bands and fixed columns through DV. Final product impurities starts at CW.
+Column J contains Time Transferred as an Excel date and time. Columns K and L
+contain the receipt date and time. Row 1 displays the client, COA ID, date
+published, publisher, and saved filename.
 
 Column E uses the sample's existing `SamplingDeviation` reference, presented
 as **Sampling Method**. The 1004 → 1005 upgrade renames its setup lookup to

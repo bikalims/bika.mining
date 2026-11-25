@@ -198,9 +198,10 @@ def sample_row(sample):
         "H": title(sample_field(sample, "DrumBatch")),
         "I": title(sample_field(sample, "Shift")),
         "J": transferred.asdatetime().replace(tzinfo=None) if transferred else None,
-        "K": received.asdatetime().replace(tzinfo=None) if received else None,
-        "L": u", ".join(analysts), "M": target_hours(sample),
-        "N": actual_tat(sample), "O": sample_field(sample, "TATStatus"),
+        "K": received.strftime("%Y-%m-%d") if received else u"",
+        "L": received.strftime("%H:%M") if received else u"",
+        "M": u", ".join(analysts), "N": target_hours(sample),
+        "O": actual_tat(sample), "P": sample_field(sample, "TATStatus"),
     }
     results = {}
     for analysis in sample.getAnalyses(full_objects=True):
