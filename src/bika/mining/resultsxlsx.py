@@ -54,35 +54,28 @@ def set_value(doc, cell, value):
         cell.appendChild(node)
 
 
-def set_results_fonts(styles, row, size=None):
-    """Normalize body fonts, or resize a row while retaining its font style."""
+def set_results_fonts(styles, cells, datetime_columns=()):
+    """Apply plain black Arial while retaining the rest of each cell style."""
     fonts = styles.getElementsByTagName("fonts")[0]
     formats = styles.getElementsByTagName("cellXfs")[0]
     original_fonts = list(fonts.getElementsByTagName("font"))
     original_formats = list(formats.getElementsByTagName("xf"))
     font_map, format_map = {}, {}
-    for cell in row.getElementsByTagName("c"):
+    for cell in cells:
         style_id = int(cell.getAttribute("s") or 0)
-        datetime_cell = size is None and column(cell) == "J"
+        datetime_cell = column(cell) in datetime_columns
         format_key = (style_id, datetime_cell)
         if format_key not in format_map:
             style = original_formats[style_id].cloneNode(deep=True)
             font_id = int(style.getAttribute("fontId") or 0)
             if font_id not in font_map:
                 font = original_fonts[font_id].cloneNode(deep=True)
-                if size is None:
-                    replaced = ("b", "i", "name", "color", "scheme")
-                    properties = [("name", "val", "Arial"),
-                                  ("color", "rgb", "FF000000")]
-                else:
-                    replaced = ("sz",)
-                    properties = [("sz", "val", str(size))]
                 for child in list(font.childNodes):
-                    if child.nodeName in replaced:
+                    if child.nodeName in ("b", "i", "name", "color", "scheme"):
                         font.removeChild(child)
-                for tag, attribute, value in properties:
+                for tag, value in (("name", "Arial"), ("color", "FF000000")):
                     node = styles.createElementNS(NS, tag)
-                    node.setAttribute(attribute, value)
+                    node.setAttribute("val" if tag == "name" else "rgb", value)
                     font.appendChild(node)
                 font_map[font_id] = len(fonts.getElementsByTagName("font"))
                 fonts.appendChild(font)
@@ -98,21 +91,22 @@ def set_results_fonts(styles, row, size=None):
     formats.setAttribute("count", str(len(formats.getElementsByTagName("xf"))))
 
 
-def set_report_header(doc, styles, row, heading_row, values):
+def set_report_header(doc, styles, row, values):
     cells = row.getElementsByTagName("c")
-    heading_style = heading_row.getElementsByTagName("c")[0].getAttribute("s")
+    label_style = cells[0].getAttribute("s")
+    value_style = cells[1].getAttribute("s")
     for cell in cells:
         set_value(doc, cell, None)
-    for cell in cells[:2 * len(REPORT_FIELDS)]:
-        cell.setAttribute("s", heading_style)
+    value_cells = []
     for index, (key, label) in enumerate(REPORT_FIELDS):
-        label_cell, value_cell = cells[2 * index:2 * index + 2]
+        label_cell, value_cell, spill_cell = cells[3 * index:3 * index + 3]
+        label_cell.setAttribute("s", label_style)
+        value_cell.setAttribute("s", value_style)
+        spill_cell.setAttribute("s", value_style)
         set_value(doc, label_cell, label)
         set_value(doc, value_cell, values.get(key))
-    set_results_fonts(styles, row, size=10)
-    # Allow Excel to fit wrapped client and publisher names in row 1.
-    row.removeAttribute("ht")
-    row.removeAttribute("customHeight")
+        value_cells.extend((value_cell, spill_cell))
+    set_results_fonts(styles, value_cells)
 
 
 def render_results(rows, template=TEMPLATE, report_header=None):
@@ -141,7 +135,7 @@ def render_results(rows, template=TEMPLATE, report_header=None):
                     definition.removeAttribute(attribute)
             if definition.getAttribute("min") == "10":
                 definition.setAttribute("width", "22")
-        set_report_header(doc, styles, report_row, heading_row, report_header or {})
+        set_report_header(doc, styles, report_row, report_header or {})
         header = next(row for row in template_rows
                       if row.getAttribute("r") == "3")
         columns = {}
@@ -161,7 +155,8 @@ def render_results(rows, template=TEMPLATE, report_header=None):
         style_row = next(row for row in template_rows
                          if row.getAttribute("r") == "4")
         prototype = style_row.cloneNode(deep=True)
-        set_results_fonts(styles, prototype)
+        set_results_fonts(styles, prototype.getElementsByTagName("c"),
+                          datetime_columns=("J",))
         for row in list(template_rows):
             if int(row.getAttribute("r")) >= 4:
                 data.removeChild(row)

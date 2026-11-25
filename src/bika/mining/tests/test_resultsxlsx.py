@@ -139,21 +139,24 @@ class TestResultsXLSX(unittest.TestCase):
                   'I': 'COA26-0001 Plant.xlsx'}
         sheet = load_workbook(BytesIO(render_results(
             [], report_header=header)))['Reporting']
-        self.assertEqual([cell.value for cell in sheet[1][:10]], [
-            'Client', 'Plant', 'COA ID', 'COA26-0001',
-            'Date Published', '2026-10-18 09:15', 'Published by', 'Publisher',
-            'File name', 'COA26-0001 Plant.xlsx',
+        self.assertEqual([cell.value for cell in sheet[1][:15]], [
+            'Client', 'Plant', None, 'COA ID', 'COA26-0001', None,
+            'Date Published', '2026-10-18 09:15', None,
+            'Published by', 'Publisher', None,
+            'File name', 'COA26-0001 Plant.xlsx', None,
         ])
-        heading = sheet['A2']
-        self.assertEqual(heading.font.sz, 9)
-        expected_font = copy(heading.font)
-        expected_font.sz = 10
-        for cell in sheet[1]:
-            self.assertEqual(cell.font.sz, 10)
-        for cell in sheet[1][:10]:
-            self.assertEqual(copy(cell.font), expected_font)
-            self.assertEqual(copy(cell.fill), copy(heading.fill))
-            self.assertEqual(copy(cell.alignment), copy(heading.alignment))
+        for cell in sheet[1][:15:3]:
+            self.assertTrue(cell.font.bold)
+            self.assertEqual(cell.font.color.rgb, 'FFFFFFFF')
+            self.assertEqual(copy(cell.fill), copy(sheet['A2'].fill))
+        for cell, spill in zip(sheet[1][1:15:3], sheet[1][2:15:3]):
+            self.assertFalse(cell.font.bold)
+            self.assertEqual(cell.font.color.rgb, 'FF000000')
+            self.assertEqual(cell.fill.fgColor.rgb, 'FFFFFFFF')
+            self.assertEqual(cell.alignment.horizontal, 'left')
+            self.assertFalse(cell.alignment.wrap_text)
+            self.assertFalse(cell.alignment.shrink_to_fit)
+            self.assertEqual(copy(cell.fill), copy(spill.fill))
         self.assertEqual(sheet.max_row, 3)
         self.assertEqual(sheet.auto_filter.ref, 'B3:DV3')
 
@@ -352,11 +355,11 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         filename = reports[0].xlsx.filename
         saved_sheet = load_workbook(BytesIO(reports[0].xlsx.data))['Reporting']
         self.assertEqual(saved_sheet['B1'].value, 'Lotus test')
-        self.assertEqual(saved_sheet['D1'].value, api.get_id(reports[0]))
-        self.assertEqual(saved_sheet['J1'].value, filename)
-        self.assertEqual(saved_sheet['F1'].value,
-                         reports[0].created().strftime('%Y-%m-%d %H:%M'))
+        self.assertEqual(saved_sheet['E1'].value, api.get_id(reports[0]))
+        self.assertEqual(saved_sheet['N1'].value, filename)
         self.assertEqual(saved_sheet['H1'].value,
+                         reports[0].created().strftime('%Y-%m-%d %H:%M'))
+        self.assertEqual(saved_sheet['K1'].value,
                          api.get_user_fullname(reports[0].Creator()) or
                          reports[0].Creator())
         self.assertEqual(api.normalize_filename(filename[:-5]),
@@ -371,11 +374,11 @@ class TestResultsPublicationRegistration(unittest.TestCase):
         self.assertEqual(sheet['A4'].value, sample.getId())
         self.assertEqual(sheet['A5'].value, second_sample.getId())
         self.assertEqual(sheet['E4'].value, 'Composite')
-        self.assertEqual(sheet['F1'].value,
+        self.assertEqual(sheet['H1'].value,
                          sample.getDatePublished().strftime('%Y-%m-%d %H:%M'))
-        self.assertTrue(sheet['H1'].value)
-        self.assertEqual(sheet['D1'].value, api.get_id(reports[0]))
-        self.assertEqual(sheet['J1'].value, filename)
+        self.assertTrue(sheet['K1'].value)
+        self.assertEqual(sheet['E1'].value, api.get_id(reports[0]))
+        self.assertEqual(sheet['N1'].value, filename)
         self.assertEqual(sheet['N4'].value, 8.0)
         self.assertAlmostEqual(sheet['O4'].value, 1.0, places=2)
         self.assertEqual(sheet['P4'].value, 'On Time')
